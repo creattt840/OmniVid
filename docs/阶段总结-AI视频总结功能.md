@@ -36,9 +36,11 @@
 
 ### 2.5 前端入口
 
-- `VideoResult.vue` 新增「AI 分析」按钮（与「立即下载」并列）
-- `VideoSummary.vue` 四 Tab：摘要 / 转录 / 思维导图 / AI 问答
-- `FeatureSection` AI 功能 badge 更新为「已上线」
+- 解析成功后右栏自动展示 `VideoSummary`（摘要 / 转录 / 思维导图 / AI 问答）
+- 左栏 `VideoResult` 保留下载与字幕导出
+- `FeatureSection` AI 功能 badge 为「已上线」
+
+> **2026-06-14 更新**：前端已重构为 OmniVid 同屏工作区，解析后自动触发 AI 分析，详见 [阶段总结-前端体验优化.md](阶段总结-前端体验优化.md)。
 
 ### 2.6 字幕独立下载（扩展）
 

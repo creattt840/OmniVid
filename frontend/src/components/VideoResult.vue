@@ -1,5 +1,9 @@
 <template>
-  <div class="animate-fade-up bg-bg-card rounded-3xl border border-border-light shadow-sm overflow-hidden">
+  <div
+    :class="workspace
+      ? 'overflow-hidden'
+      : 'animate-fade-up bg-bg-card border border-border-light shadow-sm overflow-hidden ' + (compact ? 'rounded-2xl' : 'rounded-3xl')"
+  >
     <!-- 缩略图区域 -->
     <div class="relative aspect-video bg-gray-100">
       <img
@@ -26,8 +30,11 @@
     </div>
 
     <!-- 视频信息 -->
-    <div class="p-5 sm:p-6">
-      <h3 class="text-lg sm:text-xl font-bold text-text-primary leading-snug mb-3 line-clamp-2">
+    <div :class="compact ? 'p-4' : 'p-5 sm:p-6'">
+      <h3
+        class="font-bold text-text-primary leading-snug mb-3 line-clamp-2"
+        :class="compact ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'"
+      >
         {{ video.title }}
       </h3>
 
@@ -61,13 +68,17 @@
       <!-- 格式选择 -->
       <div class="mb-5">
         <h4 class="text-sm font-semibold text-text-primary mb-3">选择清晰度</h4>
-        <div class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+        <div
+          class="grid grid-cols-1 gap-2 overflow-y-auto pr-1"
+          :class="compact ? 'max-h-36' : 'max-h-48'"
+        >
           <button
             v-for="fmt in video.formats"
             :key="fmt.format_id"
             @click="selectedFormat = fmt.format_id"
             :class="[
-              'flex items-center gap-3 px-4 py-3 rounded-2xl border text-left transition-all cursor-pointer',
+              'flex items-center gap-3 px-4 border text-left transition-all cursor-pointer',
+              compact ? 'py-2.5 rounded-xl text-sm' : 'py-3 rounded-2xl',
               selectedFormat === fmt.format_id
                 ? 'border-primary bg-primary-light ring-1 ring-primary/20'
                 : 'border-border-light hover:border-primary/30 hover:bg-gray-50'
@@ -88,7 +99,7 @@
       </div>
 
       <!-- 操作按钮 -->
-      <div class="flex flex-col sm:flex-row gap-3">
+      <div :class="compact ? 'flex flex-col gap-2.5' : 'flex flex-col sm:flex-row gap-3'">
         <button
           @click="$emit('download', selectedFormat)"
           :disabled="!selectedFormat || downloading"
@@ -121,19 +132,6 @@
           </svg>
           {{ downloadingSubtitles ? subtitleLoadingText : '下载字幕' }}
         </button>
-
-        <button
-          @click="$emit('analyze')"
-          :disabled="analyzing"
-          class="flex-1 h-13 flex items-center justify-center gap-2 rounded-full border-2 border-primary text-primary hover:bg-primary-light font-semibold text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <svg v-if="analyzing" class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <span v-else>🤖</span>
-          {{ analyzing ? '分析中...' : 'AI 分析' }}
-        </button>
       </div>
 
       <p v-if="errorMsg" class="mt-3 text-sm text-red-500 text-center">{{ errorMsg }}</p>
@@ -149,11 +147,12 @@ const props = defineProps({
   downloading: Boolean,
   downloadingSubtitles: Boolean,
   subtitleLoadingText: { type: String, default: '字幕处理中...' },
-  analyzing: Boolean,
   errorMsg: String,
+  compact: Boolean,
+  workspace: Boolean,
 })
 
-defineEmits(['download', 'download-subtitles', 'analyze'])
+defineEmits(['download', 'download-subtitles'])
 
 const thumbnailUrl = computed(() => {
   if (!props.video.thumbnail) return ''

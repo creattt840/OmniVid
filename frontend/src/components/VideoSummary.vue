@@ -1,20 +1,28 @@
 <template>
-  <div class="mt-6 bg-bg-card rounded-3xl border border-border-light shadow-sm overflow-hidden animate-fade-up">
+  <div
+    :class="embedded
+      ? 'flex flex-col h-full max-h-full min-h-0 overflow-hidden'
+      : 'bg-bg-card rounded-3xl border border-border-light shadow-sm overflow-hidden animate-fade-up mt-6'"
+  >
     <!-- 头部 -->
-    <div class="px-5 sm:px-6 py-4 border-b border-border-light flex items-center justify-between gap-3">
+    <div class="flex-shrink-0 px-5 sm:px-6 py-4 border-b border-border-light flex items-center justify-between gap-3">
       <div class="flex items-center gap-2 min-w-0">
         <span class="text-xl">🤖</span>
         <div class="min-w-0">
-          <h3 class="font-bold text-text-primary truncate">AI 视频分析</h3>
-          <p class="text-xs text-text-muted truncate">
+          <h3 class="font-bold text-text-primary truncate">AI 分析</h3>
+          <p v-if="!embedded" class="text-xs text-text-muted truncate">
             {{ meta.title }}
             <span v-if="meta.transcript_source" class="ml-1">
               · {{ meta.transcript_source === 'subtitle' ? '字幕提取' : '语音转写' }}
             </span>
           </p>
+          <p v-else-if="meta.transcript_source" class="text-xs text-text-muted truncate">
+            {{ meta.transcript_source === 'subtitle' ? '字幕提取' : '语音转写' }}
+          </p>
         </div>
       </div>
       <button
+        v-if="!embedded"
         @click="$emit('close')"
         class="flex-shrink-0 p-2 rounded-xl hover:bg-gray-100 text-text-muted transition-colors cursor-pointer"
         aria-label="关闭"
@@ -26,7 +34,7 @@
     </div>
 
     <!-- 状态栏 -->
-    <div v-if="phase !== 'ready'" class="px-5 sm:px-6 py-3 bg-primary-light/50 border-b border-border-light">
+    <div v-if="phase !== 'ready'" class="flex-shrink-0 px-5 sm:px-6 py-3 bg-primary-light/50 border-b border-border-light">
       <div class="flex items-center gap-2 text-sm text-primary">
         <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -37,12 +45,12 @@
     </div>
 
     <!-- 错误 -->
-    <div v-if="error" class="px-5 sm:px-6 py-4 bg-red-50 text-red-700 text-sm">
+    <div v-if="error" class="flex-shrink-0 px-5 sm:px-6 py-4 bg-red-50 text-red-700 text-sm">
       {{ error }}
     </div>
 
     <!-- Tabs -->
-    <div class="flex border-b border-border-light overflow-x-auto">
+    <div class="flex-shrink-0 flex border-b border-border-light overflow-x-auto">
       <button
         v-for="tab in tabs"
         :key="tab.id"
@@ -58,8 +66,11 @@
       </button>
     </div>
 
-    <!-- Tab 内容 -->
-    <div class="p-5 sm:p-6 min-h-[280px] max-h-[520px] overflow-y-auto">
+    <!-- Tab 内容（固定高度区域内滚动） -->
+    <div
+      class="flex-1 min-h-0 p-5 sm:p-6 overflow-y-auto"
+      :class="embedded ? '' : 'min-h-[280px] max-h-[520px]'"
+    >
       <!-- 摘要 -->
       <div v-show="activeTab === 'summary'" class="space-y-5">
         <!-- 流式生成中：摘要正文 -->
@@ -187,7 +198,7 @@
       </div>
 
       <!-- AI 问答 -->
-      <div v-show="activeTab === 'chat'" class="flex flex-col h-[380px]">
+      <div v-show="activeTab === 'chat'" class="flex flex-col h-full min-h-[240px]">
         <div ref="chatContainer" class="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
           <div v-if="!chatMessages.length" class="text-sm text-text-muted text-center py-8">
             基于视频内容提问，例如：「视频的核心观点是什么？」
@@ -235,6 +246,7 @@ import { downloadSegments } from '../utils/subtitleExport.js'
 
 const props = defineProps({
   url: { type: String, required: true },
+  embedded: Boolean,
 })
 
 defineEmits(['close'])

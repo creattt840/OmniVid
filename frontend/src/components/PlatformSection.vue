@@ -1,6 +1,6 @@
 <template>
   <section id="platforms" class="py-14 sm:py-20" aria-labelledby="platforms-heading">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="page-container">
       <div class="text-center mb-10 sm:mb-14">
         <h2 id="platforms-heading" class="text-2xl sm:text-3xl font-bold text-text-primary mb-3">
           支持全球 <span class="text-primary">1800+</span> 视频平台
@@ -62,7 +62,7 @@ const platforms = [
     name: 'Bilibili 哔哩哔哩',
     desc: '绕过反爬限制，720P/1080P 多清晰度，CC 字幕支持',
     tags: ['Bilibili', '1080P', 'CC字幕'],
-    bg: 'bg-pink-50',
+    bg: 'bg-indigo-50',
   },
   {
     icon: '🎵',

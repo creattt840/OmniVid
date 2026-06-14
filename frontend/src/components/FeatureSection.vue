@@ -1,6 +1,6 @@
 <template>
   <section id="features" class="py-14 sm:py-20 bg-bg-card" aria-labelledby="features-heading">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="page-container">
       <div class="text-center mb-10 sm:mb-14">
         <h2 id="features-heading" class="text-2xl sm:text-3xl font-bold text-text-primary mb-3">
           为什么选择<span class="text-primary">我们</span>
@@ -56,9 +56,9 @@ const features = [
     icon: '💧',
     title: '抖音无水印下载',
     desc: '专用解析引擎，自动去除抖音水印，获取原始高清视频。',
-    bg: 'bg-pink-50',
+    bg: 'bg-indigo-50',
     badge: '独家',
-    badgeClass: 'bg-pink-100 text-pink-700',
+    badgeClass: 'bg-indigo-100 text-primary-dark',
   },
   {
     icon: '🤖',

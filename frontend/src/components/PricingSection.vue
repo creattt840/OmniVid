@@ -1,6 +1,6 @@
 <template>
   <section id="pricing" class="py-14 sm:py-20 bg-bg-card" aria-labelledby="pricing-heading">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6">
+    <div class="page-container">
       <div class="text-center mb-10 sm:mb-14">
         <h2 id="pricing-heading" class="text-2xl sm:text-3xl font-bold text-text-primary mb-3">
           选择适合你的<span class="text-primary">下载方案</span>
@@ -10,7 +10,7 @@
         </p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
         <!-- 免费版 -->
         <div class="bg-bg-page rounded-3xl border border-border p-7 flex flex-col">
           <div class="mb-5">
@@ -38,7 +38,7 @@
         </div>
 
         <!-- VIP 版 -->
-        <div class="relative bg-gradient-to-br from-primary to-blue-600 rounded-3xl p-7 flex flex-col text-white overflow-hidden shadow-xl">
+        <div class="relative bg-gradient-to-br from-primary to-primary-dark rounded-3xl p-7 flex flex-col text-white overflow-hidden shadow-xl">
           <div class="absolute top-4 right-4 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-sm">
             推荐
           </div>

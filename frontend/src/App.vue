@@ -10,30 +10,37 @@
         :showSlogan="!videoData"
       />
 
-      <!-- 解析结果 -->
+      <!-- 解析结果：统一卡片双栏工作区 -->
       <section v-if="videoData" class="pb-8 sm:pb-12 animate-fade-up">
-        <div class="max-w-2xl mx-auto px-4 sm:px-6">
-          <VideoResult
-            :video="videoData"
-            :downloading="downloading"
-            :downloadingSubtitles="downloadingSubtitles"
-            :subtitleLoadingText="subtitleLoadingText"
-            :analyzing="showSummary"
-            :errorMsg="downloadError"
-            @download="handleDownload"
-            @download-subtitles="handleDownloadSubtitles"
-            @analyze="handleAnalyze"
-          />
-          <VideoSummary
-            v-if="showSummary"
-            :url="currentUrl"
-            @close="showSummary = false"
-          />
+        <div class="page-container">
+          <div class="bg-bg-card rounded-3xl border border-border-light shadow-sm overflow-hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-5 items-start divide-y lg:divide-y-0 lg:divide-x divide-border-light">
+              <div class="lg:col-span-2">
+                <VideoResult
+                  compact
+                  workspace
+                  :video="videoData"
+                  :downloading="downloading"
+                  :downloadingSubtitles="downloadingSubtitles"
+                  :subtitleLoadingText="subtitleLoadingText"
+                  :errorMsg="downloadError"
+                  @download="handleDownload"
+                  @download-subtitles="handleDownloadSubtitles"
+                />
+              </div>
+              <div v-if="showSummary" class="lg:col-span-3 flex flex-col overflow-hidden max-h-[520px] sm:max-h-[580px] lg:max-h-[640px]">
+                <VideoSummary
+                  embedded
+                  :url="currentUrl"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- 解析错误提示 -->
-      <div v-if="parseError" class="max-w-2xl mx-auto px-4 sm:px-6 -mt-4 mb-6">
+      <div v-if="parseError" class="page-container -mt-4 mb-6">
         <div class="flex items-start gap-3 p-4 rounded-2xl bg-red-50 border border-red-100 text-red-700 text-sm">
           <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -116,7 +123,8 @@ async function handleParse(url) {
     const res = await parseVideo(url)
     if (res.success) {
       videoData.value = res.data
-      showToast('解析成功！选择清晰度后点击下载', 'success')
+      showSummary.value = true
+      showToast('解析成功，正在生成 AI 摘要...', 'success')
     } else {
       parseError.value = res.error || '未知错误'
     }
@@ -190,9 +198,6 @@ async function handleDownloadSubtitles() {
   }
 }
 
-function handleAnalyze() {
-  showSummary.value = true
-}
 </script>
 
 <style>

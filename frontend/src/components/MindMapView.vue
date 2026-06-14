@@ -138,7 +138,7 @@ const markmapOptions = {
   duration: 300,
   maxWidth: 280,
   color: (node) => {
-    const colors = ['#3B82F6', '#6366F1', '#8B5CF6', '#0EA5E9', '#14B8A6']
+    const colors = ['#6366F1', '#818CF8', '#4F46E5', '#A5B4FC', '#7C3AED']
     return colors[(node.state?.depth || 0) % colors.length]
   },
 }

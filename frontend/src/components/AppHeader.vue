@@ -1,6 +1,6 @@
 <template>
   <header class="sticky top-0 z-50 bg-bg-card/90 backdrop-blur-md border-b border-border-light">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+    <div class="page-container h-14 sm:h-16 flex items-center justify-between">
       <!-- 汉堡菜单 -->
       <button
         @click="menuOpen = !menuOpen"
@@ -19,13 +19,13 @@
             <path d="M8 5v14l11-7z" />
           </svg>
         </div>
-        <span class="font-semibold text-text-primary hidden sm:inline">万能视频下载</span>
+        <span class="font-semibold text-text-primary hidden sm:inline">OmniVid</span>
       </a>
 
       <!-- 用户区 -->
       <button
         @click="$emit('login')"
-        class="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-blue-100 flex items-center justify-center hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer"
+        class="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-primary-light flex items-center justify-center hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer"
         aria-label="登录"
       >
         <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">

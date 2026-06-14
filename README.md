@@ -1,14 +1,16 @@
-# 万能视频下载器
+# OmniVid
 
-基于 **yt-dlp** 的万能视频下载网站，支持 YouTube、Bilibili、抖音、TikTok 等 1800+ 平台。UI 参考 [ai.codefather.cn/painting](https://ai.codefather.cn/painting) 风格设计。
+基于 **yt-dlp** 的智能视频助理，支持 YouTube、Bilibili、抖音、TikTok 等 1800+ 平台。粘贴链接即可解析下载，并自动生成 AI 摘要、思维导图与字幕。
 
-## 功能（第 1-3 阶段）
+## 功能
 
 - 视频链接解析（标题、缩略图、清晰度列表）
 - 服务端代理下载（移动端友好）
+- 解析后自动 AI 总结（摘要 / 转录 / 思维导图 / 问答）
 - 抖音无水印专用解析
 - B 站专用解析（绕过 412 反爬）
-- painting 风格响应式前端
+- 字幕独立下载（SRT / VTT / TXT，含 Whisper 兜底）
+- 柔紫 Indigo 主题响应式前端
 
 ## 快速开始
 
@@ -40,8 +42,8 @@ npm run dev
 
 ```
 video-downloader/
-├── docs/           # 需求分析 + 方案设计
-├── backend/        # FastAPI + yt-dlp
+├── docs/           # 需求分析 + 方案设计 + 阶段总结
+├── backend/        # FastAPI + yt-dlp + AI
 └── frontend/       # Vue 3 + Tailwind CSS v4
 ```
 
@@ -49,6 +51,7 @@ video-downloader/
 
 启动后端后访问 http://localhost:8000/docs
 
-## 免责声明
+## 文档
 
-本站仅供个人学习交流使用，请勿用于商业或侵权用途。
+- [本地运行指南](docs/本地运行指南.md)
+- [阶段总结-前端体验优化](docs/阶段总结-前端体验优化.md)
