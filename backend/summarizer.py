@@ -70,6 +70,18 @@ SUMMARY_SYSTEM_PROMPT = """你是一位专业的视频内容分析师。根据�
 CHAT_SYSTEM_PROMPT = """你是一位视频内容助手。根据提供的视频转录和摘要，准确回答用户关于视频内容的问题。
 如果视频中没有相关信息，请诚实说明。回答简洁清晰，使用中文。"""
 
+REWRITE_SYSTEM_PROMPT = """你是一位专业的内容编辑。将口语化的视频转录文本改写成结构清晰、语言流畅的书面文章。
+要求：
+- 保留原意，去除口语赘词和重复
+- 使用 Markdown 格式，含适当小标题与段落
+- 800-1500 字，中文输出
+- 不要添加视频中没有的信息"""
+
+TRANSLATE_SYSTEM_PROMPT = """你是一位专业翻译。将字幕文本翻译为目标语言，保持原意与时间戳对应关系。
+必须严格输出 JSON 数组，不要包含 markdown 或其他文字：
+[{"start": 0.0, "end": 5.0, "text": "翻译后的文本"}, ...]
+start/end 与输入完全一致，仅翻译 text 字段。"""
+
 
 class VideoAnalyzer:
     def __init__(
@@ -221,6 +233,90 @@ class VideoAnalyzer:
         except Exception as e:
             logger.exception("问答失败")
             yield self._sse("error", {"message": f"AI 问答失败: {str(e)}"})
+
+    def stream_rewrite(self, session_id: str) -> Generator[str, None, None]:
+        session = session_store.get(session_id)
+        if not session:
+            yield self._sse("error", {"message": "会话不存在或已过期"})
+            return
+
+        if not self.client:
+            yield self._sse("error", {"message": "未配置 DEEPSEEK_API_KEY"})
+            return
+
+        transcript = self._build_transcript_text(session)
+        user_prompt = f"视频标题：{session.title}\n\n转录文本：\n{transcript}"
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                messages=[
+                    {"role": "system", "content": REWRITE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                stream=True,
+                temperature=0.4,
+                max_tokens=4096,
+            )
+
+            full_content = ""
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_content += delta
+                    yield self._sse("rewrite_chunk", {"content": delta})
+
+            yield self._sse("rewrite_done", {"content": full_content})
+
+        except Exception as e:
+            logger.exception("文章改写失败")
+            yield self._sse("error", {"message": f"AI 改写失败: {str(e)}"})
+
+    def translate_segments(
+        self, segments: list, target_lang: str = "en"
+    ) -> list:
+        if not self.client:
+            raise ValueError("未配置 DEEPSEEK_API_KEY")
+
+        lang_map = {
+            "en": "English",
+            "zh": "简体中文",
+            "ja": "Japanese",
+            "ko": "Korean",
+            "es": "Spanish",
+            "fr": "French",
+        }
+        target = lang_map.get(target_lang, target_lang)
+
+        # 分批翻译，避免超长上下文
+        batch_size = 40
+        result = []
+        for i in range(0, len(segments), batch_size):
+            batch = segments[i : i + batch_size]
+            batch_json = json.dumps(
+                [{"start": s["start"], "end": s["end"], "text": s["text"]} for s in batch],
+                ensure_ascii=False,
+            )
+            resp = self.client.chat.completions.create(
+                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                messages=[
+                    {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": f"目标语言：{target}\n\n字幕：\n{batch_json}",
+                    },
+                ],
+                temperature=0.2,
+                max_tokens=8192,
+            )
+            content = resp.choices[0].message.content or "[]"
+            content = content.strip()
+            if content.startswith("```"):
+                content = content.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            translated = json.loads(content)
+            result.extend(translated)
+
+        return result
 
     @staticmethod
     def _sse(event_type: str, data: dict) -> str:

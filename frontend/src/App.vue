@@ -1,6 +1,11 @@
 <template>
   <div class="min-h-screen flex flex-col bg-bg-page">
-    <AppHeader @login="showComingSoon('登录注册')" />
+    <AppHeader
+      :history-count="historyItems.length"
+      @login="showComingSoon('登录注册')"
+      @history="historyOpen = true"
+      @menu-open="menuOpen = true"
+    />
 
     <main class="flex-1">
       <HeroSection
@@ -32,6 +37,9 @@
                 <VideoSummary
                   embedded
                   :url="currentUrl"
+                  :video-url="currentUrl"
+                  :thumbnail="videoData?.thumbnail || ''"
+                  @completed="handleAnalysisCompleted"
                 />
               </div>
             </div>
@@ -61,6 +69,25 @@
 
     <AppFooter />
 
+    <HistoryPanel
+      :open="historyOpen"
+      :items="historyItems"
+      @close="historyOpen = false"
+      @select="handleHistorySelect"
+      @remove="handleHistoryRemove"
+      @clear="handleHistoryClear"
+    />
+
+    <SideMenuDrawer
+      :open="menuOpen"
+      :history-count="historyItems.length"
+      @close="menuOpen = false"
+      @new-parse="handleNewParse"
+      @history="handleMenuHistory"
+      @upload-local="handleMenuUploadLocal"
+      @navigate="handleMenuNavigate"
+    />
+
     <!-- Toast 提示 -->
     <Teleport to="body">
       <Transition name="toast">
@@ -79,17 +106,20 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import HeroSection from './components/HeroSection.vue'
 import VideoResult from './components/VideoResult.vue'
 import VideoSummary from './components/VideoSummary.vue'
+import HistoryPanel from './components/HistoryPanel.vue'
+import SideMenuDrawer from './components/SideMenuDrawer.vue'
 import PlatformSection from './components/PlatformSection.vue'
 import FeatureSection from './components/FeatureSection.vue'
 import HowToSection from './components/HowToSection.vue'
 import PricingSection from './components/PricingSection.vue'
 import AppFooter from './components/AppFooter.vue'
-import { parseVideo, downloadViaServer, downloadSubtitles } from './api/video.js'
+import { parseVideo, downloadViaServer, downloadSubtitles, getDirectUrl } from './api/video.js'
+import { loadHistory, saveHistoryItem, removeHistoryItem, clearHistory } from './utils/historyStore.js'
 
 const loading = ref(false)
 const downloading = ref(false)
@@ -101,6 +131,66 @@ const parseError = ref('')
 const downloadError = ref('')
 const toast = ref(null)
 const showSummary = ref(false)
+const historyOpen = ref(false)
+const historyItems = ref([])
+const menuOpen = ref(false)
+
+onMounted(() => {
+  historyItems.value = loadHistory()
+})
+
+function refreshHistory() {
+  historyItems.value = loadHistory()
+}
+
+function handleAnalysisCompleted(item) {
+  saveHistoryItem(item)
+  refreshHistory()
+}
+
+function handleHistorySelect(url) {
+  historyOpen.value = false
+  handleParse(url)
+}
+
+function handleHistoryRemove(id) {
+  removeHistoryItem(id)
+  refreshHistory()
+}
+
+function handleHistoryClear() {
+  clearHistory()
+  refreshHistory()
+}
+
+function resetWorkspace() {
+  videoData.value = null
+  showSummary.value = false
+  currentUrl.value = ''
+  parseError.value = ''
+  downloadError.value = ''
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function handleNewParse() {
+  resetWorkspace()
+  menuOpen.value = false
+}
+
+function handleMenuHistory() {
+  menuOpen.value = false
+  historyOpen.value = true
+}
+
+function handleMenuUploadLocal() {
+  menuOpen.value = false
+  showComingSoon('本地视频文件上传解析')
+}
+
+function handleMenuNavigate(href) {
+  menuOpen.value = false
+  document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' })
+}
 
 function showToast(message, type = 'info') {
   toast.value = { message, type }
@@ -140,6 +230,26 @@ async function handleDownload(formatId) {
   downloading.value = true
   downloadError.value = ''
   try {
+    // 优先尝试直链下载，减少服务器带宽
+    try {
+      const directRes = await getDirectUrl(currentUrl.value, formatId)
+      if (directRes.success && directRes.data?.direct_url) {
+        const { direct_url, ext, title } = directRes.data
+        const link = document.createElement('a')
+        link.href = direct_url
+        link.download = `${title || 'video'}.${ext || 'mp4'}`
+        link.target = '_blank'
+        link.rel = 'noopener'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        showToast('直链下载已开始（优先使用浏览器直链）', 'success')
+        return
+      }
+    } catch {
+      // 直链不可用，回退服务端代理
+    }
+
     const response = await downloadViaServer(currentUrl.value, formatId)
     const contentDisposition = response.headers['content-disposition']
     let filename = 'video.mp4'
@@ -154,7 +264,7 @@ async function handleDownload(formatId) {
     a.download = filename
     a.click()
     window.URL.revokeObjectURL(url)
-    showToast('下载已开始，请查看浏览器下载列表', 'success')
+    showToast('下载已开始（服务端代理）', 'success')
   } catch (err) {
     downloadError.value = err.message || '下载失败，请稍后重试'
   } finally {

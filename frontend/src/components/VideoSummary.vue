@@ -34,7 +34,7 @@
     </div>
 
     <!-- 状态栏 -->
-    <div v-if="phase !== 'ready'" class="flex-shrink-0 px-5 sm:px-6 py-3 bg-primary-light/50 border-b border-border-light">
+    <div v-if="phase !== 'ready' || rewriteLoading" class="flex-shrink-0 px-5 sm:px-6 py-3 bg-primary-light/50 border-b border-border-light">
       <div class="flex items-center gap-2 text-sm text-primary">
         <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -56,7 +56,7 @@
         :key="tab.id"
         @click="activeTab = tab.id"
         :class="[
-          'flex-shrink-0 px-5 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px',
+          'flex-shrink-0 px-4 sm:px-5 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px',
           activeTab === tab.id
             ? 'border-primary text-primary'
             : 'border-transparent text-text-muted hover:text-text-primary'
@@ -64,6 +64,25 @@
       >
         {{ tab.label }}
       </button>
+      <!-- 导出按钮 -->
+      <div v-if="phase === 'ready' && summary.summary" class="ml-auto flex items-center gap-1 px-3 flex-shrink-0">
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-lg text-xs font-medium text-text-muted hover:text-primary hover:bg-primary-light transition-colors cursor-pointer"
+          title="导出 Markdown"
+          @click="exportMarkdown"
+        >
+          MD
+        </button>
+        <button
+          type="button"
+          class="px-2.5 py-1 rounded-lg text-xs font-medium text-text-muted hover:text-primary hover:bg-primary-light transition-colors cursor-pointer"
+          title="导出 PDF"
+          @click="exportPdf"
+        >
+          PDF
+        </button>
+      </div>
     </div>
 
     <!-- Tab 内容（固定高度区域内滚动） -->
@@ -72,7 +91,8 @@
       :class="embedded ? '' : 'min-h-[280px] max-h-[520px]'"
     >
       <!-- 摘要 -->
-      <div v-show="activeTab === 'summary'" class="space-y-5">
+      <div v-show="activeTab === 'summary'" class="flex gap-4">
+        <div class="flex-1 min-w-0 space-y-5">
         <!-- 流式生成中：摘要正文 -->
         <section v-if="phase === 'summarizing' && streamingSummary">
           <h4 class="text-sm font-semibold text-text-primary mb-2">摘要</h4>
@@ -127,11 +147,27 @@
               <div
                 v-for="(ch, i) in summary.chapters"
                 :key="i"
-                class="p-3 rounded-2xl bg-gray-50 border border-border-light"
+                :id="'chapter-' + i"
+                class="p-3 rounded-2xl bg-gray-50 border border-border-light hover:border-primary/30 transition-colors cursor-pointer group"
+                @click="jumpToChapter(ch)"
               >
                 <div class="flex items-center gap-2 mb-1">
                   <span class="text-xs font-mono text-primary bg-primary-light px-2 py-0.5 rounded-lg">{{ ch.time }}</span>
-                  <span class="text-sm font-medium text-text-primary">{{ ch.title }}</span>
+                  <span class="text-sm font-medium text-text-primary flex-1">{{ ch.title }}</span>
+                  <a
+                    v-if="videoUrl"
+                    :href="buildTimestampUrl(ch.time)"
+                    target="_blank"
+                    rel="noopener"
+                    class="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-primary-light text-primary transition-all"
+                    title="在原视频中打开"
+                    @click.stop
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
                 </div>
                 <p v-if="ch.summary" class="text-xs text-text-muted leading-relaxed">{{ ch.summary }}</p>
               </div>
@@ -152,12 +188,34 @@
         <p v-if="phase === 'ready' && !summary.summary && !streamingSummary" class="text-sm text-text-muted text-center py-8">
           暂无摘要内容
         </p>
+        </div>
+
+        <!-- 章节快速导航（桌面端侧边栏） -->
+        <nav
+          v-if="summary.chapters?.length && (phase === 'ready' || summary.summary)"
+          class="hidden xl:block w-36 flex-shrink-0 sticky top-0 self-start"
+        >
+          <p class="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wide">章节导航</p>
+          <ul class="space-y-1">
+            <li v-for="(ch, i) in summary.chapters" :key="'nav-' + i">
+              <button
+                type="button"
+                class="w-full text-left px-2 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-primary-light hover:text-primary transition-colors cursor-pointer truncate"
+                :title="ch.title"
+                @click="jumpToChapter(ch, i)"
+              >
+                <span class="font-mono text-primary/70">{{ ch.time }}</span>
+                {{ ch.title }}
+              </button>
+            </li>
+          </ul>
+        </nav>
       </div>
 
       <!-- 转录 -->
       <div v-show="activeTab === 'transcript'">
         <div v-if="segments.length" class="space-y-2">
-          <div class="flex items-center gap-2 pb-2 border-b border-border-light">
+          <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-border-light">
             <span class="text-xs text-text-muted">导出：</span>
             <button
               v-for="fmt in subtitleFormats"
@@ -168,12 +226,29 @@
             >
               {{ fmt.label }}
             </button>
+            <span class="text-xs text-text-muted ml-1">翻译：</span>
+            <select
+              v-model="translateLang"
+              class="px-2 py-1 rounded-lg text-xs border border-border-light text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+            >
+              <option v-for="lang in translateLangs" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
+            </select>
+            <button
+              type="button"
+              class="px-3 py-1 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary-light transition-colors cursor-pointer disabled:opacity-50"
+              :disabled="translating"
+              @click="handleTranslateDownload"
+            >
+              {{ translating ? '翻译中...' : '翻译下载 SRT' }}
+            </button>
           </div>
-          <div class="space-y-1 font-mono text-xs">
+          <div ref="transcriptContainer" class="space-y-1 font-mono text-xs">
             <div
               v-for="(seg, i) in segments"
               :key="i"
-              class="flex gap-3 py-1.5 hover:bg-gray-50 rounded-lg px-2 -mx-2"
+              :ref="el => { if (el) segmentRefs[i] = el }"
+              class="flex gap-3 py-1.5 hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors"
+              :class="highlightSegment === i ? 'bg-primary-light/60 ring-1 ring-primary/20' : ''"
             >
               <span class="text-primary flex-shrink-0 w-14">{{ formatTime(seg.start) }}</span>
               <span class="text-text-secondary leading-relaxed">{{ seg.text }}</span>
@@ -195,6 +270,25 @@
         <p v-else-if="!mindmap" class="text-sm text-text-muted text-center py-8">
           {{ phase === 'summarizing' ? '思维导图生成中...' : '暂无思维导图' }}
         </p>
+      </div>
+
+      <!-- 文章视图 -->
+      <div v-show="activeTab === 'article'">
+        <div v-if="!articleContent && !articleStreaming && phase === 'ready'" class="text-center py-8">
+          <p class="text-sm text-text-muted mb-4">将口语化转录改写为结构清晰的书面文章</p>
+          <button
+            type="button"
+            class="px-5 py-2.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50"
+            :disabled="rewriteLoading"
+            @click="startRewrite"
+          >
+            {{ rewriteLoading ? '生成中...' : '生成 AI 改写文章' }}
+          </button>
+        </div>
+        <div v-else class="article-content">
+          <div v-html="renderedArticle" />
+          <span v-if="articleStreaming" class="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
+        </div>
       </div>
 
       <!-- AI 问答 -->
@@ -240,21 +334,28 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
-import { startAnalyze, streamAnalyze, chatAnalyze } from '../api/analyze.js'
+import { startAnalyze, streamAnalyze, chatAnalyze, rewriteAnalyze } from '../api/analyze.js'
+import { translateSubtitles } from '../api/video.js'
 import MindMapView from './MindMapView.vue'
 import { downloadSegments } from '../utils/subtitleExport.js'
+import { downloadSummaryMarkdown, downloadSummaryPdf } from '../utils/summaryExport.js'
+import { parseTimeString, buildVideoUrlWithTimestamp } from '../utils/timeUtils.js'
+import { renderMarkdown } from '../utils/markdownRender.js'
 
 const props = defineProps({
   url: { type: String, required: true },
   embedded: Boolean,
+  videoUrl: { type: String, default: '' },
+  thumbnail: { type: String, default: '' },
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close', 'completed'])
 
 const tabs = [
   { id: 'summary', label: '摘要' },
   { id: 'transcript', label: '转录' },
   { id: 'mindmap', label: '思维导图' },
+  { id: 'article', label: '文章' },
   { id: 'chat', label: 'AI 问答' },
 ]
 
@@ -265,13 +366,22 @@ const segments = ref([])
 const summary = ref({})
 const streamingSummary = ref('')
 const mindmap = ref('')
-const phase = ref('preparing') // preparing | transcribing | summarizing | ready | error
+const phase = ref('preparing')
 const error = ref('')
 const chatInput = ref('')
 const chatMessages = ref([])
 const chatLoading = ref(false)
 const chatContainer = ref(null)
 const mindmapRef = ref(null)
+const transcriptContainer = ref(null)
+const segmentRefs = ref({})
+const highlightSegment = ref(-1)
+const translating = ref(false)
+const translateLang = ref('en')
+const articleContent = ref('')
+const articleStreaming = ref(false)
+const rewriteLoading = ref(false)
+const historySaved = ref(false)
 
 const subtitleFormats = [
   { id: 'srt', label: 'SRT' },
@@ -279,12 +389,134 @@ const subtitleFormats = [
   { id: 'txt', label: 'TXT' },
 ]
 
+const translateLangs = [
+  { id: 'en', label: 'English' },
+  { id: 'zh', label: '中文' },
+  { id: 'ja', label: '日本語' },
+  { id: 'ko', label: '한국어' },
+  { id: 'es', label: 'Español' },
+  { id: 'fr', label: 'Français' },
+]
+
 const statusText = computed(() => {
   if (phase.value === 'preparing') return '正在准备分析...'
   if (phase.value === 'transcribing') return '正在提取/转写视频文本...'
   if (phase.value === 'summarizing') return 'AI 正在生成摘要与思维导图...'
+  if (rewriteLoading.value) return 'AI 正在改写文章...'
   return ''
 })
+
+const renderedArticle = computed(() => renderMarkdown(articleContent.value))
+
+function buildTimestampUrl(timeStr) {
+  const seconds = parseTimeString(timeStr)
+  return buildVideoUrlWithTimestamp(props.videoUrl || props.url, seconds)
+}
+
+function jumpToChapter(ch, index) {
+  activeTab.value = 'transcript'
+  const seconds = parseTimeString(ch.time)
+  nextTick(() => {
+    let targetIdx = 0
+    for (let i = 0; i < segments.value.length; i++) {
+      if (segments.value[i].start <= seconds) targetIdx = i
+      else break
+    }
+    highlightSegment.value = targetIdx
+    const el = segmentRefs.value[targetIdx]
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setTimeout(() => { highlightSegment.value = -1 }, 2500)
+    if (typeof index === 'number') {
+      const chapterEl = document.getElementById('chapter-' + index)
+      chapterEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  })
+}
+
+function exportMarkdown() {
+  downloadSummaryMarkdown({
+    title: meta.value.title,
+    platform: meta.value.platform,
+    url: props.url,
+    summary: summary.value,
+    mindmap: mindmap.value,
+  })
+}
+
+function exportPdf() {
+  downloadSummaryPdf({
+    title: meta.value.title,
+    platform: meta.value.platform,
+    url: props.url,
+    summary: summary.value,
+    mindmap: mindmap.value,
+    article: articleContent.value,
+  })
+}
+
+async function handleTranslateDownload() {
+  translating.value = true
+  error.value = ''
+  try {
+    const response = await translateSubtitles(props.url, translateLang.value, 'srt')
+    const contentDisposition = response.headers['content-disposition']
+    let filename = `subtitle_${translateLang.value}.srt`
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;\n]+)/i)
+      if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''))
+    }
+    const blob = new Blob([response.data], { type: 'application/x-subrip;charset=utf-8' })
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  } catch (err) {
+    const detail = err.response?.data?.detail
+    error.value = typeof detail === 'object' ? detail.error : (detail || err.message || '字幕翻译失败')
+  } finally {
+    translating.value = false
+  }
+}
+
+async function startRewrite() {
+  if (!sessionId.value || rewriteLoading.value) return
+  rewriteLoading.value = true
+  articleContent.value = ''
+  articleStreaming.value = true
+  try {
+    await rewriteAnalyze(sessionId.value, (event) => {
+      if (event.type === 'rewrite_chunk') {
+        articleContent.value += event.content || ''
+      } else if (event.type === 'rewrite_done') {
+        articleContent.value = event.content || articleContent.value
+        articleStreaming.value = false
+      } else if (event.type === 'error') {
+        error.value = event.message
+        articleStreaming.value = false
+      }
+    })
+  } catch (err) {
+    error.value = err.message || '文章改写失败'
+  } finally {
+    rewriteLoading.value = false
+    articleStreaming.value = false
+  }
+}
+
+function saveToHistory() {
+  if (historySaved.value || !summary.value.summary) return
+  historySaved.value = true
+  emit('completed', {
+    url: props.url,
+    title: meta.value.title,
+    platform: meta.value.platform,
+    thumbnail: props.thumbnail,
+    summary: { ...summary.value },
+    mindmap: mindmap.value,
+  })
+}
 
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600)
@@ -324,7 +556,10 @@ async function runAnalysis() {
       summary.value = { summary: streamingSummary.value, highlights: [], chapters: [], terms: [] }
       streamingSummary.value = ''
     }
-    if (phase.value !== 'error') phase.value = 'ready'
+    if (phase.value !== 'error') {
+      phase.value = 'ready'
+      saveToHistory()
+    }
   } catch (err) {
     phase.value = 'error'
     error.value = err.message || '分析失败，请稍后重试'

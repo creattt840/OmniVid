@@ -85,6 +85,12 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class TranslateRequest(BaseModel):
+    url: str
+    target_lang: str = "en"
+    format: str = "srt"
+
+
 @app.get("/api/health")
 async def health_check():
     return {
@@ -284,6 +290,86 @@ async def stream_analyze(session_id: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.get("/api/analyze/{session_id}/rewrite")
+async def rewrite_analyze(session_id: str):
+    def event_generator():
+        for event in video_analyzer.stream_rewrite(session_id):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/subtitles/translate")
+async def translate_subtitles(req: TranslateRequest):
+    fmt = req.format.lower()
+    if fmt not in ("srt", "vtt", "txt"):
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": "format 仅支持 srt / vtt / txt"},
+        )
+    lang = req.target_lang.lower()
+    if lang not in ("en", "zh", "ja", "ko", "es", "fr"):
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": "target_lang 仅支持 en/zh/ja/ko/es/fr"},
+        )
+    if not video_analyzer.is_ai_available():
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": "未配置 DEEPSEEK_API_KEY，无法翻译"},
+        )
+    try:
+        loop = asyncio.get_event_loop()
+        segments, meta, source = await loop.run_in_executor(
+            None, _fetch_transcript_segments, req.url
+        )
+        translated = await loop.run_in_executor(
+            None, video_analyzer.translate_segments, segments, lang
+        )
+        if fmt == "srt":
+            content = SubtitleFetcher.segments_to_srt(translated)
+            media_type = "application/x-subrip"
+        elif fmt == "vtt":
+            content = SubtitleFetcher.segments_to_vtt(translated)
+            media_type = "text/vtt"
+        else:
+            content = SubtitleFetcher.segments_to_text(translated)
+            media_type = "text/plain"
+
+        title = meta.get("title") or "subtitle"
+        lang_suffix = f"_{lang}"
+        filename = sanitize_filename(f"{title}{lang_suffix}", fmt)
+        ascii_fallback = f"subtitle{lang_suffix}.{fmt}"
+        content_disp = (
+            f'attachment; filename="{ascii_fallback}"; '
+            f"filename*=UTF-8''{quote(filename)}"
+        )
+        return StreamingResponse(
+            iter([content.encode("utf-8")]),
+            media_type=f"{media_type}; charset=utf-8",
+            headers={
+                "Content-Disposition": content_disp,
+                "X-Transcript-Source": source,
+                "X-Target-Lang": lang,
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"success": False, "error": str(e)})
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"字幕翻译失败: {str(e)}"},
+        )
 
 
 @app.post("/api/analyze/{session_id}/chat")

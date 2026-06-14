@@ -63,10 +63,18 @@ const features = [
   {
     icon: '🤖',
     title: 'AI 视频总结',
-    desc: '一键生成视频摘要、思维导图、字幕文本，快速掌握核心内容。',
+    desc: '摘要、思维导图、AI 改写、字幕翻译与笔记导出，快速掌握核心内容。',
     bg: 'bg-amber-50',
     badge: '已上线',
     badgeClass: 'bg-green-100 text-green-700',
+  },
+  {
+    icon: '📝',
+    title: '笔记导出与历史',
+    desc: '一键导出 Markdown/PDF 笔记，本地保存分析历史，随时回看。',
+    bg: 'bg-rose-50',
+    badge: '新功能',
+    badgeClass: 'bg-indigo-100 text-primary-dark',
   },
   {
     icon: '⚡',

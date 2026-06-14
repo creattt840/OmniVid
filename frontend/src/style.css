@@ -80,3 +80,74 @@ body {
     padding-inline: 2rem;
   }
 }
+
+/* AI 改写文章 Markdown 渲染 */
+.article-content h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 0.75rem;
+  line-height: 1.4;
+}
+
+.article-content h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 1.25rem 0 0.5rem;
+  line-height: 1.4;
+}
+
+.article-content h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 1rem 0 0.375rem;
+  line-height: 1.4;
+}
+
+.article-content p {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.75;
+  margin: 0 0 0.75rem;
+}
+
+.article-content blockquote {
+  margin: 0.75rem 0;
+  padding: 0.625rem 0.875rem;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-light);
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.article-content blockquote p {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-style: italic;
+}
+
+.article-content ul {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.article-content li {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  margin-bottom: 0.25rem;
+}
+
+.article-content strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.article-content code {
+  font-size: 0.8125rem;
+  background: var(--color-border-light);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}

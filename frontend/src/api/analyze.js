@@ -70,3 +70,7 @@ export function chatAnalyze(sessionId, message, onEvent) {
     onEvent,
   )
 }
+
+export function rewriteAnalyze(sessionId, onEvent) {
+  return consumeSSE(`/api/analyze/${sessionId}/rewrite`, { method: 'GET' }, onEvent)
+}
