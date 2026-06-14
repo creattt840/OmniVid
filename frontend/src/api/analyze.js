@@ -22,19 +22,26 @@ async function consumeSSE(url, options, onEvent) {
   const decoder = new TextDecoder()
   let buffer = ''
 
+  function processLine(line) {
+    if (line.startsWith('data: ')) {
+      try {
+        onEvent(JSON.parse(line.slice(6)))
+      } catch { /* skip malformed */ }
+    }
+  }
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() || ''
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          onEvent(JSON.parse(line.slice(6)))
-        } catch { /* skip malformed */ }
-      }
-    }
+    for (const line of lines) processLine(line)
+  }
+
+  // 处理缓冲区剩余数据，避免最后一个 SSE 事件丢失导致卡住
+  if (buffer.trim()) {
+    for (const line of buffer.split('\n')) processLine(line)
   }
 }
 

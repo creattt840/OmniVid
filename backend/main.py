@@ -1,6 +1,7 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 
@@ -15,7 +16,7 @@ from pydantic import BaseModel
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import DouyinParser, is_douyin_url
 from downloader import VideoDownloader
-from subtitles import SubtitleFetcher
+from subtitles import SubtitleFetcher, sanitize_filename
 from transcriber import Transcriber
 from summarizer import VideoAnalyzer
 
@@ -73,6 +74,11 @@ class DownloadRequest(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     url: str
+
+
+class SubtitleDownloadRequest(BaseModel):
+    url: str
+    format: str = "srt"
 
 
 class ChatRequest(BaseModel):
@@ -170,6 +176,71 @@ async def proxy_thumbnail(url: str = Query(..., description="缩略图URL")):
             )
     except Exception:
         raise HTTPException(status_code=502, detail="缩略图加载失败")
+
+
+def _fetch_transcript_segments(url: str) -> tuple[list, dict, str]:
+    """获取转录 segments，优先字幕，无字幕则 Whisper 兜底。"""
+    segments, meta = subtitle_fetcher.fetch_from_url(url)
+    source = "subtitle"
+    if not segments:
+        try:
+            segments, meta = transcriber.transcribe_url(url)
+            source = "whisper"
+        except ValueError as e:
+            raise ValueError(f"无法获取视频字幕：{e}") from e
+    if not segments:
+        raise ValueError("无法获取视频字幕（无字幕且语音转写失败）")
+    return segments, meta, source
+
+
+@app.post("/api/subtitles/download")
+async def download_subtitles(req: SubtitleDownloadRequest):
+    fmt = req.format.lower()
+    if fmt not in ("srt", "vtt", "txt"):
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": "format 仅支持 srt / vtt / txt"},
+        )
+    try:
+        loop = asyncio.get_event_loop()
+        segments, meta, source = await loop.run_in_executor(
+            None, _fetch_transcript_segments, req.url
+        )
+        if fmt == "srt":
+            content = SubtitleFetcher.segments_to_srt(segments)
+            media_type = "application/x-subrip"
+        elif fmt == "vtt":
+            content = SubtitleFetcher.segments_to_vtt(segments)
+            media_type = "text/vtt"
+        else:
+            content = SubtitleFetcher.segments_to_text(segments)
+            media_type = "text/plain"
+
+        title = meta.get("title") or "subtitle"
+        filename = sanitize_filename(title, fmt)
+        ascii_fallback = f"subtitle.{fmt}"
+        content_disp = (
+            f'attachment; filename="{ascii_fallback}"; '
+            f"filename*=UTF-8''{quote(filename)}"
+        )
+        return StreamingResponse(
+            iter([content.encode("utf-8")]),
+            media_type=f"{media_type}; charset=utf-8",
+            headers={
+                "Content-Disposition": content_disp,
+                "X-Transcript-Source": source,
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": str(e)},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"字幕下载失败: {str(e)}"},
+        )
 
 
 @app.post("/api/analyze")

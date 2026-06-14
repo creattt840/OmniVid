@@ -14,6 +14,13 @@ export async function downloadViaServer(url, formatId) {
   })
 }
 
+export async function downloadSubtitles(url, format = 'srt') {
+  return api.post('/subtitles/download', { url, format }, {
+    responseType: 'blob',
+    timeout: 600000,
+  })
+}
+
 export async function getDirectUrl(url, formatId) {
   const { data } = await api.post('/direct-url', { url, format_id: formatId })
   return data

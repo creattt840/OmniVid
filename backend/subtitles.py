@@ -29,6 +29,26 @@ def _format_timestamp(seconds: float) -> str:
     return f"{m}:{s:02d}"
 
 
+def _format_srt_timestamp(seconds: float) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = int(seconds % 60)
+    ms = int(round((seconds % 1) * 1000))
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def _format_vtt_timestamp(seconds: float) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
+    return f"{h:02d}:{m:02d}:{s:06.3f}"
+
+
+def sanitize_filename(title: str, ext: str) -> str:
+    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", title or "subtitle").strip()[:80]
+    return f"{safe or 'subtitle'}.{ext}"
+
+
 def _pick_lang(available: list[str]) -> Optional[str]:
     for lang in PREFERRED_LANGS:
         if lang in available:
@@ -288,4 +308,22 @@ class SubtitleFetcher:
         for seg in segments:
             ts = _format_timestamp(seg["start"])
             lines.append(f"[{ts}] {seg['text']}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def segments_to_srt(segments: list[Segment]) -> str:
+        blocks = []
+        for i, seg in enumerate(segments, 1):
+            start = _format_srt_timestamp(seg["start"])
+            end = _format_srt_timestamp(max(seg["end"], seg["start"] + 0.001))
+            blocks.append(f"{i}\n{start} --> {end}\n{seg['text']}\n")
+        return "\n".join(blocks)
+
+    @staticmethod
+    def segments_to_vtt(segments: list[Segment]) -> str:
+        lines = ["WEBVTT", ""]
+        for seg in segments:
+            start = _format_vtt_timestamp(seg["start"])
+            end = _format_vtt_timestamp(max(seg["end"], seg["start"] + 0.001))
+            lines.extend([f"{start} --> {end}", seg["text"], ""])
         return "\n".join(lines)

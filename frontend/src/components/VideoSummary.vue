@@ -62,54 +62,81 @@
     <div class="p-5 sm:p-6 min-h-[280px] max-h-[520px] overflow-y-auto">
       <!-- 摘要 -->
       <div v-show="activeTab === 'summary'" class="space-y-5">
-        <section v-if="summary.summary || streamingSummary">
+        <!-- 流式生成中：摘要正文 -->
+        <section v-if="phase === 'summarizing' && streamingSummary">
           <h4 class="text-sm font-semibold text-text-primary mb-2">摘要</h4>
           <p class="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-            {{ summary.summary || streamingSummary }}
-            <span v-if="phase === 'summarizing'" class="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />
+            {{ streamingSummary }}
+            <span class="inline-block w-1.5 h-4 bg-primary animate-pulse ml-0.5" />
           </p>
         </section>
 
-        <section v-if="summary.highlights?.length">
-          <h4 class="text-sm font-semibold text-text-primary mb-2">核心要点</h4>
-          <ul class="space-y-2">
-            <li
-              v-for="(item, i) in summary.highlights"
-              :key="i"
-              class="flex gap-2 text-sm text-text-secondary"
-            >
-              <span class="text-primary font-bold flex-shrink-0">{{ i + 1 }}.</span>
-              <span>{{ item }}</span>
-            </li>
-          </ul>
-        </section>
+        <!-- 生成中：其他区块骨架屏 -->
+        <template v-if="phase === 'summarizing'">
+          <section v-if="!streamingSummary" class="py-4">
+            <div class="h-4 w-16 bg-gray-200 rounded animate-pulse mb-3" />
+            <div class="space-y-2">
+              <div class="h-3 bg-gray-100 rounded animate-pulse" />
+              <div class="h-3 bg-gray-100 rounded animate-pulse w-5/6" />
+              <div class="h-3 bg-gray-100 rounded animate-pulse w-4/6" />
+            </div>
+          </section>
+          <section class="py-2">
+            <div class="h-4 w-20 bg-gray-200 rounded animate-pulse mb-3" />
+            <div class="space-y-2">
+              <div v-for="n in 3" :key="n" class="h-3 bg-gray-100 rounded animate-pulse" :class="n === 3 ? 'w-2/3' : ''" />
+            </div>
+          </section>
+        </template>
 
-        <section v-if="summary.chapters?.length">
-          <h4 class="text-sm font-semibold text-text-primary mb-2">章节大纲</h4>
-          <div class="space-y-3">
-            <div
-              v-for="(ch, i) in summary.chapters"
-              :key="i"
-              class="p-3 rounded-2xl bg-gray-50 border border-border-light"
-            >
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-xs font-mono text-primary bg-primary-light px-2 py-0.5 rounded-lg">{{ ch.time }}</span>
-                <span class="text-sm font-medium text-text-primary">{{ ch.title }}</span>
+        <!-- 完成后：结构化展示 -->
+        <template v-if="phase === 'ready' || (phase !== 'summarizing' && summary.summary)">
+          <section v-if="summary.summary">
+            <h4 class="text-sm font-semibold text-text-primary mb-2">摘要</h4>
+            <p class="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">{{ summary.summary }}</p>
+          </section>
+
+          <section v-if="summary.highlights?.length">
+            <h4 class="text-sm font-semibold text-text-primary mb-2">核心要点</h4>
+            <ul class="space-y-2">
+              <li
+                v-for="(item, i) in summary.highlights"
+                :key="i"
+                class="flex gap-2 text-sm text-text-secondary"
+              >
+                <span class="text-primary font-bold flex-shrink-0">{{ i + 1 }}.</span>
+                <span>{{ item }}</span>
+              </li>
+            </ul>
+          </section>
+
+          <section v-if="summary.chapters?.length">
+            <h4 class="text-sm font-semibold text-text-primary mb-2">章节大纲</h4>
+            <div class="space-y-3">
+              <div
+                v-for="(ch, i) in summary.chapters"
+                :key="i"
+                class="p-3 rounded-2xl bg-gray-50 border border-border-light"
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-xs font-mono text-primary bg-primary-light px-2 py-0.5 rounded-lg">{{ ch.time }}</span>
+                  <span class="text-sm font-medium text-text-primary">{{ ch.title }}</span>
+                </div>
+                <p v-if="ch.summary" class="text-xs text-text-muted leading-relaxed">{{ ch.summary }}</p>
               </div>
-              <p class="text-xs text-text-muted leading-relaxed">{{ ch.summary }}</p>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section v-if="summary.terms?.length">
-          <h4 class="text-sm font-semibold text-text-primary mb-2">术语解释</h4>
-          <dl class="space-y-2">
-            <div v-for="(t, i) in summary.terms" :key="i" class="text-sm">
-              <dt class="font-medium text-text-primary">{{ t.term }}</dt>
-              <dd class="text-text-muted mt-0.5">{{ t.definition }}</dd>
-            </div>
-          </dl>
-        </section>
+          <section v-if="summary.terms?.length">
+            <h4 class="text-sm font-semibold text-text-primary mb-2">术语解释</h4>
+            <dl class="space-y-2">
+              <div v-for="(t, i) in summary.terms" :key="i" class="text-sm">
+                <dt class="font-medium text-text-primary">{{ t.term }}</dt>
+                <dd class="text-text-muted mt-0.5">{{ t.definition }}</dd>
+              </div>
+            </dl>
+          </section>
+        </template>
 
         <p v-if="phase === 'ready' && !summary.summary && !streamingSummary" class="text-sm text-text-muted text-center py-8">
           暂无摘要内容
@@ -118,14 +145,28 @@
 
       <!-- 转录 -->
       <div v-show="activeTab === 'transcript'">
-        <div v-if="segments.length" class="space-y-1 font-mono text-xs">
-          <div
-            v-for="(seg, i) in segments"
-            :key="i"
-            class="flex gap-3 py-1.5 hover:bg-gray-50 rounded-lg px-2 -mx-2"
-          >
-            <span class="text-primary flex-shrink-0 w-14">{{ formatTime(seg.start) }}</span>
-            <span class="text-text-secondary leading-relaxed">{{ seg.text }}</span>
+        <div v-if="segments.length" class="space-y-2">
+          <div class="flex items-center gap-2 pb-2 border-b border-border-light">
+            <span class="text-xs text-text-muted">导出：</span>
+            <button
+              v-for="fmt in subtitleFormats"
+              :key="fmt.id"
+              type="button"
+              class="px-3 py-1 rounded-lg text-xs font-medium border border-border-light text-text-secondary hover:border-primary/30 hover:text-primary transition-colors cursor-pointer"
+              @click="exportTranscript(fmt.id)"
+            >
+              {{ fmt.label }}
+            </button>
+          </div>
+          <div class="space-y-1 font-mono text-xs">
+            <div
+              v-for="(seg, i) in segments"
+              :key="i"
+              class="flex gap-3 py-1.5 hover:bg-gray-50 rounded-lg px-2 -mx-2"
+            >
+              <span class="text-primary flex-shrink-0 w-14">{{ formatTime(seg.start) }}</span>
+              <span class="text-text-secondary leading-relaxed">{{ seg.text }}</span>
+            </div>
           </div>
         </div>
         <p v-else class="text-sm text-text-muted text-center py-8">转录文本加载中...</p>
@@ -135,8 +176,10 @@
       <div v-show="activeTab === 'mindmap'">
         <MindMapView
           v-if="mindmap && activeTab === 'mindmap'"
+          ref="mindmapRef"
           :key="mindmap.slice(0, 80)"
           :content="mindmap"
+          :title="meta.title || '思维导图'"
         />
         <p v-else-if="!mindmap" class="text-sm text-text-muted text-center py-8">
           {{ phase === 'summarizing' ? '思维导图生成中...' : '暂无思维导图' }}
@@ -185,9 +228,10 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { startAnalyze, streamAnalyze, chatAnalyze } from '../api/analyze.js'
 import MindMapView from './MindMapView.vue'
+import { downloadSegments } from '../utils/subtitleExport.js'
 
 const props = defineProps({
   url: { type: String, required: true },
@@ -215,6 +259,13 @@ const chatInput = ref('')
 const chatMessages = ref([])
 const chatLoading = ref(false)
 const chatContainer = ref(null)
+const mindmapRef = ref(null)
+
+const subtitleFormats = [
+  { id: 'srt', label: 'SRT' },
+  { id: 'vtt', label: 'VTT' },
+  { id: 'txt', label: 'TXT' },
+]
 
 const statusText = computed(() => {
   if (phase.value === 'preparing') return '正在准备分析...'
@@ -231,6 +282,18 @@ function formatTime(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+function exportTranscript(format) {
+  if (!segments.value.length) return
+  downloadSegments(segments.value, meta.value.title || 'subtitle', format)
+}
+
+watch(activeTab, async (tab) => {
+  if (tab === 'mindmap') {
+    await nextTick()
+    mindmapRef.value?.fitMindmap()
+  }
+})
+
 async function runAnalysis() {
   phase.value = 'preparing'
   error.value = ''
@@ -244,7 +307,12 @@ async function runAnalysis() {
 
     phase.value = 'summarizing'
     await streamAnalyze(sessionId.value, handleStreamEvent)
-    phase.value = 'ready'
+    // 流结束但未收到 summary_done 时的兜底
+    if (!summary.value.summary && streamingSummary.value) {
+      summary.value = { summary: streamingSummary.value, highlights: [], chapters: [], terms: [] }
+      streamingSummary.value = ''
+    }
+    if (phase.value !== 'error') phase.value = 'ready'
   } catch (err) {
     phase.value = 'error'
     error.value = err.message || '分析失败，请稍后重试'

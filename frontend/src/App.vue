@@ -16,9 +16,12 @@
           <VideoResult
             :video="videoData"
             :downloading="downloading"
+            :downloadingSubtitles="downloadingSubtitles"
+            :subtitleLoadingText="subtitleLoadingText"
             :analyzing="showSummary"
             :errorMsg="downloadError"
             @download="handleDownload"
+            @download-subtitles="handleDownloadSubtitles"
             @analyze="handleAnalyze"
           />
           <VideoSummary
@@ -79,10 +82,12 @@ import FeatureSection from './components/FeatureSection.vue'
 import HowToSection from './components/HowToSection.vue'
 import PricingSection from './components/PricingSection.vue'
 import AppFooter from './components/AppFooter.vue'
-import { parseVideo, downloadViaServer } from './api/video.js'
+import { parseVideo, downloadViaServer, downloadSubtitles } from './api/video.js'
 
 const loading = ref(false)
 const downloading = ref(false)
+const downloadingSubtitles = ref(false)
+const subtitleLoadingText = ref('字幕处理中...')
 const videoData = ref(null)
 const currentUrl = ref('')
 const parseError = ref('')
@@ -146,6 +151,42 @@ async function handleDownload(formatId) {
     downloadError.value = err.message || '下载失败，请稍后重试'
   } finally {
     downloading.value = false
+  }
+}
+
+async function handleDownloadSubtitles() {
+  downloadingSubtitles.value = true
+  subtitleLoadingText.value = videoData.value?.subtitles?.length
+    ? '正在提取字幕...'
+    : '正在语音转写，请稍候...'
+  downloadError.value = ''
+  try {
+    const response = await downloadSubtitles(currentUrl.value, 'srt')
+    const source = response.headers['x-transcript-source']
+    if (source === 'whisper') {
+      subtitleLoadingText.value = '语音转写完成，正在保存...'
+    }
+    const contentDisposition = response.headers['content-disposition']
+    let filename = 'subtitle.srt'
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;\n]+)/i)
+      if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''))
+    }
+    const blob = new Blob([response.data], { type: 'application/x-subrip;charset=utf-8' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    window.URL.revokeObjectURL(url)
+    const msg = source === 'whisper' ? '字幕已生成（语音转写）并开始下载' : '字幕下载已开始'
+    showToast(msg, 'success')
+  } catch (err) {
+    const detail = err.response?.data?.detail
+    downloadError.value = typeof detail === 'object' ? detail.error : (detail || err.message || '字幕下载失败')
+  } finally {
+    downloadingSubtitles.value = false
+    subtitleLoadingText.value = '字幕处理中...'
   }
 }
 

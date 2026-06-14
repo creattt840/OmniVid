@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -12,6 +11,7 @@ from typing import Generator, Optional
 from openai import OpenAI
 
 from subtitles import SubtitleFetcher
+from summary_parser import extract_partial_summary, parse_summary_json
 
 logger = logging.getLogger("summarizer")
 
@@ -145,16 +145,25 @@ class VideoAnalyzer:
                 ],
                 stream=True,
                 temperature=0.3,
+                max_tokens=8192,
             )
 
             full_content = ""
+            prev_summary_len = 0
             for chunk in stream:
                 delta = chunk.choices[0].delta.content or ""
                 if delta:
                     full_content += delta
-                    yield self._sse("summary_chunk", {"content": delta})
+                    # 仅流式输出 summary 字段的纯文本，避免前端展示原始 JSON
+                    current_summary = extract_partial_summary(full_content)
+                    if len(current_summary) > prev_summary_len:
+                        yield self._sse(
+                            "summary_chunk",
+                            {"content": current_summary[prev_summary_len:]},
+                        )
+                        prev_summary_len = len(current_summary)
 
-            summary_data = self._parse_summary_json(full_content)
+            summary_data = parse_summary_json(full_content)
             session.summary = summary_data
             yield self._sse("summary_done", summary_data)
             yield self._sse("mindmap", {"content": summary_data.get("mindmap", "")})
@@ -212,34 +221,6 @@ class VideoAnalyzer:
         except Exception as e:
             logger.exception("问答失败")
             yield self._sse("error", {"message": f"AI 问答失败: {str(e)}"})
-
-    @staticmethod
-    def _parse_summary_json(content: str) -> dict:
-        content = content.strip()
-        if content.startswith("```"):
-            content = re.sub(r"^```(?:json)?\n?", "", content)
-            content = re.sub(r"\n?```$", "", content)
-
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            pass
-
-        start = content.find("{")
-        end = content.rfind("}")
-        if start >= 0 and end > start:
-            try:
-                return json.loads(content[start:end + 1])
-            except json.JSONDecodeError:
-                pass
-
-        return {
-            "summary": content[:500],
-            "highlights": [],
-            "chapters": [],
-            "mindmap": "# 视频内容\n## 详见摘要",
-            "terms": [],
-        }
 
     @staticmethod
     def _sse(event_type: str, data: dict) -> str:

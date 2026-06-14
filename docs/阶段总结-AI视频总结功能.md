@@ -40,6 +40,26 @@
 - `VideoSummary.vue` 四 Tab：摘要 / 转录 / 思维导图 / AI 问答
 - `FeatureSection` AI 功能 badge 更新为「已上线」
 
+### 2.6 字幕独立下载（扩展）
+
+- **解析页**：「下载字幕」按钮，无需触发 AI 分析
+- **转录 Tab**：SRT / VTT / TXT 一键导出（基于已加载 segments）
+- **Whisper 兜底**：无原生字幕时自动语音转写后导出
+- 新增 `POST /api/subtitles/download` 接口
+
+### 2.7 思维导图增强（扩展）
+
+- **全屏查看**：Teleport 全屏 overlay，Esc 退出
+- **导出**：PNG / SVG / Markdown 三种格式
+- PNG/SVG 使用 `html-to-image` 对可见容器截图（兼容 markmap `foreignObject` 文字渲染）
+- Markdown 从 markmap 树结构重建层级标题，并解码 HTML 实体
+
+### 2.8 摘要流式体验优化
+
+- 流式输出仅展示摘要正文，不再显示原始 JSON
+- JSON 截断自动修复（`summary_parser.py`）
+- SSE 缓冲区兜底，避免生成卡住
+
 ## 三、技术实现
 
 ```
@@ -56,6 +76,7 @@ AI：summarizer.py（Prompt + Session + SSE）
 | `POST /api/analyze` | 拉取/转写 transcript，返回 session_id |
 | `GET /api/analyze/{id}/stream` | SSE 流式摘要 + 思维导图 |
 | `POST /api/analyze/{id}/chat` | SSE 多轮 AI 问答 |
+| `POST /api/subtitles/download` | 下载字幕文件（srt/vtt/txt，含 Whisper 兜底） |
 | `GET /api/health` | 新增 `ai_available` 字段 |
 
 ### 转录策略
@@ -71,17 +92,21 @@ URL → 尝试字幕（B站 API / yt-dlp VTT）
 
 | 文件 | 职责 |
 |------|------|
-| `backend/subtitles.py` | 统一字幕拉取与 VTT/SRT/JSON 解析 |
+| `backend/subtitles.py` | 统一字幕拉取与 VTT/SRT/JSON 解析、序列化导出 |
 | `backend/transcriber.py` | 无字幕时音频下载 + Whisper ASR |
 | `backend/summarizer.py` | DeepSeek 调用、Session 管理、SSE |
+| `backend/summary_parser.py` | 流式 JSON 摘要解析与截断修复 |
 
 ### 新增前端模块
 
 | 文件 | 职责 |
 |------|------|
 | `frontend/src/api/analyze.js` | analyze / stream / chat API + SSE 消费 |
-| `frontend/src/components/VideoSummary.vue` | 四 Tab 分析面板 |
-| `frontend/src/components/MindMapView.vue` | markmap 思维导图渲染 |
+| `frontend/src/api/video.js` | 新增 `downloadSubtitles` |
+| `frontend/src/components/VideoSummary.vue` | 四 Tab 分析面板 + 转录导出 |
+| `frontend/src/components/MindMapView.vue` | markmap 渲染 + 全屏 + 导出 |
+| `frontend/src/utils/mindmapExport.js` | 思维导图 PNG/SVG/Markdown 导出 |
+| `frontend/src/utils/subtitleExport.js` | 转录 Tab 前端字幕格式转换 |
 
 ## 四、环境配置
 
@@ -108,6 +133,10 @@ WHISPER_MAX_DURATION=3600
 | YouTube Whisper 兜底（音乐视频） | 通过，关闭 vad_filter 后可转写 |
 | DeepSeek 流式摘要 + SSE | 通过 |
 | markmap 思维导图渲染 | 通过 |
+| 思维导图全屏 + PNG/SVG/Markdown 导出 | 通过 |
+| 字幕独立下载（B 站 / YouTube） | 通过 |
+| 转录 Tab SRT/VTT/TXT 导出 | 通过 |
+| 摘要流式展示（非 JSON 原文） | 通过 |
 | AI 多轮问答 | 通过 |
 | 前端生产构建 | 通过 |
 
@@ -117,6 +146,9 @@ WHISPER_MAX_DURATION=3600
 2. 配置 `backend/.env` 中的 `DEEPSEEK_API_KEY`
 3. 粘贴视频链接 → 解析 → 点击 **「AI 分析」**
 4. 依次查看：摘要（流式）、转录（时间戳）、思维导图（树形图）、AI 问答
+5. 点击 **「下载字幕」** 导出 SRT 文件
+6. 思维导图 Tab → **全屏** / **下载**（PNG、SVG、Markdown）
+7. 转录 Tab → 导出 SRT / VTT / TXT
 
 **推荐测试链接：**
 
@@ -130,9 +162,10 @@ WHISPER_MAX_DURATION=3600
 | 能力 | BibiGPT / NoteGPT | 本项目 |
 |------|-------------------|--------|
 | 下载 + 总结一体化 | 多为独立产品 | **同一 URL 解析后可下载也可分析** |
-| 思维导图 | 有 | 有（markmap 交互式） |
+| 思维导图 | 有 | 有（markmap 交互式 + 全屏 + 导出） |
+| 字幕下载 | 有（SRT/VTT/TXT） | 有（含 Whisper 兜底） |
 | AI 问答 | 有 | 有 |
-| 笔记导出 | Notion / PDF 等 | 后续阶段 |
+| 笔记导出 | Notion / PDF 等 | 思维导图 Markdown / PNG / SVG |
 | 用户配额 / VIP 门控 | 有 | 后续阶段（第 5–6 阶段） |
 
 ## 八、已知限制
@@ -142,7 +175,7 @@ WHISPER_MAX_DURATION=3600
 - Whisper 同时仅 1 个任务（CPU 单线程锁）
 - 超长转录超 DeepSeek 上下文时会截断至 50000 字符
 - YouTube 字幕偶发 429 时，yt-dlp 下载 VTT 或 Whisper 兜底
-- 思维导图 Tab 若首次空白，切换 Tab 再回来即可触发重绘
+- 思维导图 Tab 切换时会自动 `fit()` 适配尺寸
 
 ## 九、待后续阶段
 
@@ -154,7 +187,7 @@ WHISPER_MAX_DURATION=3600
 
 **v1 未纳入、可后续扩展：**
 
-- 笔记导出（Notion / Obsidian / PDF）
+- 笔记同步（Notion / Obsidian / PDF）
 - 多语言字幕翻译
 - 批量分析、分析历史持久化
 - 免费 3 次/日 AI 配额（需用户系统）
