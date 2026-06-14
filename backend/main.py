@@ -2,6 +2,10 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,10 +15,23 @@ from pydantic import BaseModel
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import DouyinParser, is_douyin_url
 from downloader import VideoDownloader
+from subtitles import SubtitleFetcher
+from transcriber import Transcriber
+from summarizer import VideoAnalyzer
 
 downloader = VideoDownloader()
 douyin_parser = DouyinParser(download_dir=downloader.DOWNLOAD_DIR)
 bilibili_parser = BilibiliParser(download_dir=downloader.DOWNLOAD_DIR)
+subtitle_fetcher = SubtitleFetcher(downloader.DOWNLOAD_DIR, bilibili_parser)
+transcriber = Transcriber(
+    download_dir=downloader.DOWNLOAD_DIR,
+    bilibili_parser=bilibili_parser,
+    douyin_parser=douyin_parser,
+    ffmpeg_path=downloader.ffmpeg_path,
+    model_size=os.getenv("WHISPER_MODEL", "small"),
+    max_duration=int(os.getenv("WHISPER_MAX_DURATION", "3600")),
+)
+video_analyzer = VideoAnalyzer(subtitle_fetcher, transcriber)
 
 
 @asynccontextmanager
@@ -54,12 +71,21 @@ class DownloadRequest(BaseModel):
     format_id: str = "bestvideo+bestaudio/best"
 
 
+class AnalyzeRequest(BaseModel):
+    url: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "ok",
         "message": "万能视频下载器服务运行中",
         "ffmpeg": downloader.has_ffmpeg,
+        "ai_available": video_analyzer.is_ai_available(),
     }
 
 
@@ -144,6 +170,69 @@ async def proxy_thumbnail(url: str = Query(..., description="缩略图URL")):
             )
     except Exception:
         raise HTTPException(status_code=502, detail="缩略图加载失败")
+
+
+@app.post("/api/analyze")
+async def start_analyze(req: AnalyzeRequest):
+    try:
+        loop = asyncio.get_event_loop()
+        session = await loop.run_in_executor(
+            None, video_analyzer.prepare_transcript, req.url
+        )
+        return {
+            "success": True,
+            "data": {
+                "session_id": session.session_id,
+                "title": session.title,
+                "transcript_source": session.transcript_source,
+                "segment_count": len(session.segments),
+                "duration": session.duration,
+                "platform": session.platform,
+                "ai_available": video_analyzer.is_ai_available(),
+            },
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"分析准备失败: {str(e)}"},
+        )
+
+
+@app.get("/api/analyze/{session_id}/stream")
+async def stream_analyze(session_id: str):
+    def event_generator():
+        for event in video_analyzer.stream_summary(session_id):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/api/analyze/{session_id}/chat")
+async def chat_analyze(session_id: str, req: ChatRequest):
+    if not req.message.strip():
+        raise HTTPException(status_code=400, detail={"success": False, "error": "消息不能为空"})
+
+    def event_generator():
+        for event in video_analyzer.stream_chat(session_id, req.message.strip()):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 if __name__ == "__main__":

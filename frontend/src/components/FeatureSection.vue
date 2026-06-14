@@ -65,8 +65,8 @@ const features = [
     title: 'AI 视频总结',
     desc: '一键生成视频摘要、思维导图、字幕文本，快速掌握核心内容。',
     bg: 'bg-amber-50',
-    badge: '即将上线',
-    badgeClass: 'bg-amber-100 text-amber-700',
+    badge: '已上线',
+    badgeClass: 'bg-green-100 text-green-700',
   },
   {
     icon: '⚡',

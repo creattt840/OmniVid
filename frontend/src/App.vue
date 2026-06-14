@@ -16,8 +16,15 @@
           <VideoResult
             :video="videoData"
             :downloading="downloading"
+            :analyzing="showSummary"
             :errorMsg="downloadError"
             @download="handleDownload"
+            @analyze="handleAnalyze"
+          />
+          <VideoSummary
+            v-if="showSummary"
+            :url="currentUrl"
+            @close="showSummary = false"
           />
         </div>
       </section>
@@ -66,6 +73,7 @@ import { ref } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import HeroSection from './components/HeroSection.vue'
 import VideoResult from './components/VideoResult.vue'
+import VideoSummary from './components/VideoSummary.vue'
 import PlatformSection from './components/PlatformSection.vue'
 import FeatureSection from './components/FeatureSection.vue'
 import HowToSection from './components/HowToSection.vue'
@@ -80,6 +88,7 @@ const currentUrl = ref('')
 const parseError = ref('')
 const downloadError = ref('')
 const toast = ref(null)
+const showSummary = ref(false)
 
 function showToast(message, type = 'info') {
   toast.value = { message, type }
@@ -95,6 +104,7 @@ async function handleParse(url) {
   videoData.value = null
   parseError.value = ''
   downloadError.value = ''
+  showSummary.value = false
   currentUrl.value = url
 
   try {
@@ -137,6 +147,10 @@ async function handleDownload(formatId) {
   } finally {
     downloading.value = false
   }
+}
+
+function handleAnalyze() {
+  showSummary.value = true
 }
 </script>
 

@@ -266,7 +266,15 @@ class BilibiliParser:
         return formats[:15]
 
     def _fetch_subtitle_langs(self, aid: int, cid: int, bvid: Optional[str]) -> dict:
+        entries = self.fetch_subtitle_entries(aid, cid, bvid)
         manual, auto = [], []
+        for e in entries:
+            (auto if e.get("is_auto") else manual).append(e["lang"])
+        return {"manual": manual, "auto": auto}
+
+    def fetch_subtitle_entries(self, aid: int, cid: int, bvid: Optional[str]) -> list:
+        """返回字幕列表 [{lang, url, is_auto}, ...]"""
+        entries = []
         try:
             referer = f"https://www.bilibili.com/video/{bvid}" if bvid else "https://www.bilibili.com/"
             resp = httpx.get(
@@ -278,10 +286,18 @@ class BilibiliParser:
             sub_list = resp.json().get("data", {}).get("subtitle", {}).get("subtitles", [])
             for s in sub_list:
                 lang = s.get("lan", "")
-                (auto if lang.startswith("ai-") else manual).append(lang)
+                sub_url = s.get("subtitle_url", "")
+                if sub_url.startswith("//"):
+                    sub_url = "https:" + sub_url
+                if sub_url:
+                    entries.append({
+                        "lang": lang,
+                        "url": sub_url,
+                        "is_auto": lang.startswith("ai-"),
+                    })
         except Exception:
             pass
-        return {"manual": manual, "auto": auto}
+        return entries
 
     @staticmethod
     def _get_media_url(play_data: dict) -> Optional[str]:
