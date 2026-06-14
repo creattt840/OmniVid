@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Node
+node_modules/
+frontend/dist/
+
+# 临时下载文件
+backend/downloads/*
+!backend/downloads/.gitkeep
+
+# IDE / OS
+.vscode/
+.idea/
+*.sws
+Thumbs.db
+.DS_Store
+
+# Firecrawl 临时
+.firecrawl/
