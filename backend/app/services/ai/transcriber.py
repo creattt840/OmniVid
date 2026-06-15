@@ -7,10 +7,10 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-from ytdlp_utils import extract_info as ytdlp_extract_info
+from app.services.video.ytdlp_utils import extract_info as ytdlp_extract_info
 
-from bilibili import BilibiliParser, is_bilibili_url
-from douyin import DouyinParser, is_douyin_url
+from app.services.video.bilibili import BilibiliParser, is_bilibili_url
+from app.services.video.douyin import DouyinParser, is_douyin_url
 
 logger = logging.getLogger("transcriber")
 

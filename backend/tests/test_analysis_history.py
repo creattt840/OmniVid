@@ -1,26 +1,8 @@
 """分析历史 API 单元测试。"""
-import os
 import time
 
-import pytest
-from fastapi.testclient import TestClient
 
-os.environ.setdefault("JWT_SECRET", "test-secret-key")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_analysis_history.db")
-os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test")
-
-test_db = os.path.join(os.path.dirname(__file__), "test_analysis_history.db")
-if os.path.exists(test_db):
-    os.remove(test_db)
-
-from main import app  # noqa: E402
-from database import init_db  # noqa: E402
-
-init_db()
-client = TestClient(app)
-
-
-def _register_and_login(email: str, password: str = "test1234"):
+def _register_and_login(client, email: str, password: str = "test1234"):
     client.post("/api/auth/register", json={"email": email, "password": password})
     res = client.post("/api/auth/login", json={"email": email, "password": password})
     token = res.json()["data"]["token"]
@@ -45,13 +27,13 @@ def _save_payload(url: str, title: str = "Test Video", **extra):
     return payload
 
 
-def test_history_requires_auth():
+def test_history_requires_auth(client):
     res = client.get("/api/analysis-history")
     assert res.status_code == 401
 
 
-def test_save_and_list_history():
-    headers = _register_and_login("history1@example.com")
+def test_save_and_list_history(client):
+    headers = _register_and_login(client, "history1@example.com")
     payload = _save_payload("https://youtube.com/watch?v=abc")
     save = client.post("/api/analysis-history", json=payload, headers=headers)
     assert save.status_code == 200
@@ -66,8 +48,8 @@ def test_save_and_list_history():
     assert items[0]["summary"]["summary"] == "hello"
 
 
-def test_save_extended_fields():
-    headers = _register_and_login("history_ext@example.com")
+def test_save_extended_fields(client):
+    headers = _register_and_login(client, "history_ext@example.com")
     payload = _save_payload("https://youtube.com/watch?v=ext")
     save = client.post("/api/analysis-history", json=payload, headers=headers)
     assert save.status_code == 200
@@ -78,8 +60,8 @@ def test_save_extended_fields():
     assert data["transcriptSource"] == "subtitle"
 
 
-def test_partial_sync_preserves_order():
-    headers = _register_and_login("history_partial@example.com")
+def test_partial_sync_preserves_order(client):
+    headers = _register_and_login(client, "history_partial@example.com")
     url = "https://youtube.com/watch?v=partial"
     client.post("/api/analysis-history", json=_save_payload(url, title="First"), headers=headers)
     time.sleep(0.02)
@@ -108,8 +90,8 @@ def test_partial_sync_preserves_order():
     assert first["chatHistory"][0]["content"] == "hi"
 
 
-def test_history_chat_not_found():
-    headers = _register_and_login("history_chat404@example.com")
+def test_history_chat_not_found(client):
+    headers = _register_and_login(client, "history_chat404@example.com")
     res = client.post(
         "/api/analysis-history/99999/chat",
         json={"message": "hello"},
@@ -118,15 +100,15 @@ def test_history_chat_not_found():
     assert res.status_code == 404
 
 
-def test_history_rewrite_not_found():
-    headers = _register_and_login("history_rewrite404@example.com")
+def test_history_rewrite_not_found(client):
+    headers = _register_and_login(client, "history_rewrite404@example.com")
     res = client.get("/api/analysis-history/99999/rewrite", headers=headers)
     assert res.status_code == 404
 
 
-def test_user_isolation():
-    headers_a = _register_and_login("history_a@example.com")
-    headers_b = _register_and_login("history_b@example.com")
+def test_user_isolation(client):
+    headers_a = _register_and_login(client, "history_a@example.com")
+    headers_b = _register_and_login(client, "history_b@example.com")
 
     client.post(
         "/api/analysis-history",
@@ -148,8 +130,8 @@ def test_user_isolation():
     assert list_b[0]["url"].endswith("b-only")
 
 
-def test_max_10_trim_oldest():
-    headers = _register_and_login("history_trim@example.com")
+def test_max_10_trim_oldest(client):
+    headers = _register_and_login(client, "history_trim@example.com")
     for i in range(11):
         client.post(
             "/api/analysis-history",
@@ -165,8 +147,8 @@ def test_max_10_trim_oldest():
     assert "Video 10" in titles
 
 
-def test_dedup_same_url():
-    headers = _register_and_login("history_dedup@example.com")
+def test_dedup_same_url(client):
+    headers = _register_and_login(client, "history_dedup@example.com")
     url = "https://youtube.com/watch?v=dedup"
     client.post(
         "/api/analysis-history",
@@ -184,8 +166,8 @@ def test_dedup_same_url():
     assert items[0]["title"] == "Updated"
 
 
-def test_delete_single_and_clear():
-    headers = _register_and_login("history_delete@example.com")
+def test_delete_single_and_clear(client):
+    headers = _register_and_login(client, "history_delete@example.com")
     save1 = client.post(
         "/api/analysis-history",
         json=_save_payload("https://youtube.com/watch?v=del1"),
@@ -208,9 +190,9 @@ def test_delete_single_and_clear():
     assert client.get("/api/analysis-history", headers=headers).json()["data"] == []
 
 
-def test_delete_other_user_forbidden():
-    headers_a = _register_and_login("history_owner@example.com")
-    headers_b = _register_and_login("history_other@example.com")
+def test_delete_other_user_forbidden(client):
+    headers_a = _register_and_login(client, "history_owner@example.com")
+    headers_b = _register_and_login(client, "history_other@example.com")
     item = client.post(
         "/api/analysis-history",
         json=_save_payload("https://youtube.com/watch?v=owned"),

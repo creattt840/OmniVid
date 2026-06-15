@@ -10,8 +10,9 @@ from typing import Generator, Optional
 
 from openai import OpenAI
 
-from subtitles import SubtitleFetcher, parse_subtitle_file
-from summary_parser import extract_partial_summary, parse_summary_json
+from app.services.ai.subtitles import SubtitleFetcher, parse_subtitle_file
+from app.services.ai.summary_parser import extract_partial_summary, parse_summary_json
+from app.core.config import get_settings
 
 logger = logging.getLogger("summarizer")
 
@@ -95,11 +96,10 @@ class VideoAnalyzer:
 
     @staticmethod
     def _init_client() -> Optional[OpenAI]:
-        api_key = os.getenv("DEEPSEEK_API_KEY")
-        if not api_key:
+        settings = get_settings()
+        if not settings.deepseek_api_key:
             return None
-        base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-        return OpenAI(api_key=api_key, base_url=base_url)
+        return OpenAI(api_key=settings.deepseek_api_key, base_url=settings.deepseek_base_url)
 
     def is_ai_available(self) -> bool:
         return self.client is not None
@@ -129,7 +129,7 @@ class VideoAnalyzer:
 
     def prepare_transcript_from_file(self, record) -> AnalysisSession:
         """从本地上传记录准备转录：优先外挂字幕，否则 Whisper。"""
-        from local_upload import UploadRecord
+        from app.services.upload.local_upload import UploadRecord
 
         if not isinstance(record, UploadRecord):
             raise ValueError("无效的上传记录")
@@ -197,7 +197,7 @@ class VideoAnalyzer:
 
         try:
             stream = self.client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=get_settings().deepseek_model,
                 messages=[
                     {"role": "system", "content": SUMMARY_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
@@ -260,7 +260,7 @@ class VideoAnalyzer:
 
         try:
             stream = self.client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=get_settings().deepseek_model,
                 messages=messages,
                 stream=True,
                 temperature=0.5,
@@ -317,7 +317,7 @@ class VideoAnalyzer:
 
         try:
             stream = self.client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=get_settings().deepseek_model,
                 messages=messages,
                 stream=True,
                 temperature=0.5,
@@ -356,7 +356,7 @@ class VideoAnalyzer:
 
         try:
             stream = self.client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=get_settings().deepseek_model,
                 messages=[
                     {"role": "system", "content": REWRITE_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
@@ -394,7 +394,7 @@ class VideoAnalyzer:
 
         try:
             stream = self.client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=get_settings().deepseek_model,
                 messages=[
                     {"role": "system", "content": REWRITE_SYSTEM_PROMPT},
                     {"role": "user", "content": user_prompt},
@@ -443,7 +443,7 @@ class VideoAnalyzer:
                 ensure_ascii=False,
             )
             resp = self.client.chat.completions.create(
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=get_settings().deepseek_model,
                 messages=[
                     {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
                     {

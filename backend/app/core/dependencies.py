@@ -2,10 +2,10 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from auth_utils import decode_access_token
-from database import get_db
-from membership import user_is_vip
-from models import User
+from app.core.security.jwt import decode_access_token
+from app.db.connection import get_db
+from app.db.models import User
+from app.services.membership import user_is_vip
 
 security = HTTPBearer(auto_error=False)
 

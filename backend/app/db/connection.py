@@ -1,25 +1,22 @@
-import os
 from pathlib import Path
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./omnivid.db")
+from app.core.config import get_settings
+from app.db.base import Base
 
-# SQLite 需要 check_same_thread=False 供 FastAPI 多线程使用
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+settings = get_settings()
+
+connect_args = (
+    {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+)
+engine = create_engine(settings.database_url, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-class Base(DeclarativeBase):
-    pass
-
-
-def _migrate_analysis_history():
+def _migrate_analysis_history() -> None:
     """为已有数据库补全新增列（SQLite create_all 不会 ALTER）。"""
-    from sqlalchemy import inspect, text
-
     inspector = inspect(engine)
     if "analysis_history" not in inspector.get_table_names():
         return
@@ -36,10 +33,10 @@ def _migrate_analysis_history():
                 conn.execute(text(f"ALTER TABLE analysis_history ADD COLUMN {name} {col_def}"))
 
 
-def init_db():
-    from models import AnalysisHistory, Membership, StripeEvent, UsageDaily, User  # noqa: F401
+def init_db() -> None:
+    from app.db import models  # noqa: F401
 
-    db_path = DATABASE_URL.replace("sqlite:///", "")
+    db_path = settings.database_url.replace("sqlite:///", "")
     if db_path and db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)

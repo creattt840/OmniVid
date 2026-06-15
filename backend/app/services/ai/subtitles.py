@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from ytdlp_utils import download as ytdlp_download, extract_info as ytdlp_extract_info
+from app.services.video.ytdlp_utils import download as ytdlp_download, extract_info as ytdlp_extract_info
 
-from bilibili import BilibiliParser, is_bilibili_url
-from douyin import is_douyin_url
+from app.services.video.bilibili import BilibiliParser, is_bilibili_url
+from app.services.video.douyin import is_douyin_url
 
 logger = logging.getLogger("subtitles")
 

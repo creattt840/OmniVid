@@ -1,12 +1,15 @@
 import json
-from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from analysis_history import (
+from app.core.dependencies import get_current_user
+from app.db.connection import get_db
+from app.db.models import User
+from app.schemas.analysis_history import SaveHistoryRequest
+from app.schemas.analyze import ChatRequest
+from app.services.analysis_history import (
     clear_history,
     delete_history,
     get_history_record,
@@ -15,38 +18,9 @@ from analysis_history import (
     update_article_content,
     update_chat_history,
 )
-from database import get_db
-from deps import get_current_user
-from models import User
+from app.services.container import get_video_analyzer
 
 router = APIRouter(prefix="/api/analysis-history", tags=["analysis-history"])
-
-
-class SaveHistoryRequest(BaseModel):
-    url: str
-    source: Optional[str] = "url"
-    title: Optional[str] = ""
-    platform: Optional[str] = ""
-    thumbnail: Optional[str] = None
-    summary: Optional[dict[str, Any]] = None
-    mindmap: Optional[str] = ""
-    segments: Optional[list] = None
-    article: Optional[str] = None
-    chatHistory: Optional[list] = None
-    transcriptSource: Optional[str] = None
-    partial: Optional[bool] = False
-
-    @field_validator("url")
-    @classmethod
-    def validate_url(cls, v: str) -> str:
-        url = v.strip()
-        if not url:
-            raise ValueError("url 不能为空")
-        return url
-
-
-class ChatRequest(BaseModel):
-    message: str
 
 
 def _payload_from_request(req: SaveHistoryRequest) -> dict:
@@ -105,8 +79,7 @@ async def history_chat(
     if not record:
         raise HTTPException(status_code=404, detail={"success": False, "error": "历史记录不存在"})
 
-    from main import video_analyzer
-
+    video_analyzer = get_video_analyzer()
     chat_history = list(record.chat_history_json or [])
 
     def event_generator():
@@ -141,8 +114,7 @@ async def history_rewrite(
     if not record:
         raise HTTPException(status_code=404, detail={"success": False, "error": "历史记录不存在"})
 
-    from main import video_analyzer
-
+    video_analyzer = get_video_analyzer()
     article_holder: dict[str, str] = {"content": ""}
 
     def event_generator():

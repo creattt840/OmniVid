@@ -1,43 +1,14 @@
-import re
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from auth_utils import create_access_token, hash_password, verify_password
-from database import get_db
-from deps import get_current_user
-from membership import serialize_user
-from models import User
+from app.core.dependencies import get_current_user
+from app.core.security.jwt import create_access_token, hash_password, verify_password
+from app.db.connection import get_db
+from app.db.models import User
+from app.schemas.auth import LoginRequest, RegisterRequest
+from app.services.membership import serialize_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-class RegisterRequest(BaseModel):
-    email: str
-    password: str
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: str) -> str:
-        email = v.strip().lower()
-        if not EMAIL_RE.match(email):
-            raise ValueError("请输入有效的邮箱地址")
-        return email
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        if len(v) < 6:
-            raise ValueError("密码至少 6 位")
-        return v
-
-
-class LoginRequest(BaseModel):
-    email: str
-    password: str
 
 
 @router.post("/register")

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from models import AnalysisHistory, User
+from app.db.models import AnalysisHistory, User
 
 MAX_HISTORY_PER_USER = 10
 

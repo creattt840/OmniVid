@@ -3,7 +3,7 @@ import re
 import shutil
 from typing import Optional
 
-from ytdlp_utils import download as ytdlp_download, extract_info as ytdlp_extract_info
+from app.services.video.ytdlp_utils import download as ytdlp_download, extract_info as ytdlp_extract_info
 
 
 def _find_ffmpeg_path() -> Optional[str]:
@@ -21,7 +21,7 @@ def _find_ffmpeg_path() -> Optional[str]:
 class VideoDownloader:
     """yt-dlp 封装层，提供视频解析、下载、直链获取能力"""
 
-    DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "downloads")
+    DOWNLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "downloads")
 
     def __init__(self):
         os.makedirs(self.DOWNLOAD_DIR, exist_ok=True)

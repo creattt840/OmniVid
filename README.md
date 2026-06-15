@@ -61,6 +61,9 @@ npm run build          # 生成 sitemap、robots.txt、llms.txt 等
 video-downloader/
 ├── docs/           # 需求分析 + 方案设计 + 阶段总结
 ├── backend/        # FastAPI + yt-dlp + AI
+│   ├── main.py     # 应用入口
+│   ├── app/        # 工程化分层（api / core / db / schemas / services）
+│   └── tests/      # pytest 单元测试
 └── frontend/       # Vue 3 + Tailwind CSS v4
     ├── geo/            # llms.txt / llms-full.txt 源文件（GEO）
     ├── plugins/        # 构建时 SEO/GEO 生成插件

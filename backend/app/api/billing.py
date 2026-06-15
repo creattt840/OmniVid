@@ -1,24 +1,19 @@
-import os
-
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from database import get_db
-from deps import get_current_user
-from membership import VIP_DURATION_DAYS, extend_vip
-from models import Membership, StripeEvent, User
+from app.core.config import get_settings
+from app.core.dependencies import get_current_user
+from app.db.connection import get_db
+from app.db.models import Membership, StripeEvent, User
+from app.services.membership import VIP_DURATION_DAYS, extend_vip
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-
-if STRIPE_SECRET_KEY:
-    stripe.api_key = STRIPE_SECRET_KEY
+_settings = get_settings()
+if _settings.stripe_secret_key:
+    stripe.api_key = _settings.stripe_secret_key
 
 
 @router.post("/checkout")
@@ -91,14 +86,16 @@ def _handle_checkout_completed(db: Session, session_obj) -> None:
 
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
-    if not STRIPE_WEBHOOK_SECRET:
+    if not _settings.stripe_webhook_secret:
         raise HTTPException(status_code=503, detail="Webhook 未配置")
 
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, _settings.stripe_webhook_secret
+        )
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError:

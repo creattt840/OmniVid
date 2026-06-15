@@ -1,12 +1,13 @@
-import os
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from models import UsageDaily, User
+from app.core.config import get_settings
+from app.db.models import UsageDaily, User
 
-FREE_DAILY_AI_LIMIT = int(os.getenv("FREE_DAILY_AI_LIMIT", "10"))
-VIP_DURATION_DAYS = int(os.getenv("VIP_DURATION_DAYS", "30"))
+_settings = get_settings()
+FREE_DAILY_AI_LIMIT = _settings.free_daily_ai_limit
+VIP_DURATION_DAYS = _settings.vip_duration_days
 AI_ANALYZE_ACTION = "ai_analyze"
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from app.core.config import get_settings
 import re
 from typing import Any, Iterator, Optional
 
@@ -35,11 +35,7 @@ def build_ydl_opts(**overrides: Any) -> dict:
         "fragment_retries": 5,
         "extractor_retries": 3,
     }
-    proxy = (
-        os.getenv("YTDLP_PROXY", "").strip()
-        or os.getenv("HTTPS_PROXY", "").strip()
-        or os.getenv("HTTP_PROXY", "").strip()
-    )
+    proxy = get_settings().ytdlp_proxy
     if proxy:
         opts["proxy"] = proxy
     opts.update(overrides)
@@ -100,7 +96,7 @@ def format_ytdlp_error(exc: Exception, *, url: str = "") -> str:
         "getaddrinfo failed",
     )
     if is_youtube_url(url) and any(m.lower() in msg.lower() for m in network_markers):
-        proxy_hint = os.getenv("YTDLP_PROXY", "").strip() or os.getenv("HTTPS_PROXY", "").strip()
+        proxy_hint = get_settings().ytdlp_proxy
         base = (
             "无法稳定连接 YouTube（网络超时或 SSL 中断）。"
             "请确认本机可访问 YouTube，或配置代理后重试。"

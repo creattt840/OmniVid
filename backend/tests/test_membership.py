@@ -1,40 +1,22 @@
 """会员与支付相关单元测试。"""
 import json
 import os
-import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from fastapi.testclient import TestClient
 
-os.environ.setdefault("JWT_SECRET", "test-secret-key")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_omnivid.db")
-os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test")
 os.environ["FREE_DAILY_AI_LIMIT"] = "10"
 
-# 清理旧测试库
-test_db = os.path.join(os.path.dirname(__file__), "test_omnivid.db")
-if os.path.exists(test_db):
-    os.remove(test_db)
 
-from main import app  # noqa: E402
-from database import SessionLocal, init_db  # noqa: E402
-from models import User  # noqa: E402
-from membership import extend_vip, get_today_ai_usage, check_ai_quota, consume_ai_quota  # noqa: E402
-
-init_db()
-client = TestClient(app)
-
-
-def _register_and_login(email: str, password: str = "test1234"):
+def _register_and_login(client, email: str, password: str = "test1234"):
     client.post("/api/auth/register", json={"email": email, "password": password})
     res = client.post("/api/auth/login", json={"email": email, "password": password})
     token = res.json()["data"]["token"]
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_register_login_me():
-    headers = _register_and_login("user1@example.com")
+def test_register_login_me(client):
+    headers = _register_and_login(client, "user1@example.com")
     me = client.get("/api/auth/me", headers=headers)
     assert me.status_code == 200
     data = me.json()["data"]
@@ -44,8 +26,12 @@ def test_register_login_me():
     assert data["membership_enabled"] is False
 
 
-def test_ai_quota_enforcement():
-    headers = _register_and_login("quota@example.com")
+def test_ai_quota_enforcement(client):
+    from app.db.connection import SessionLocal
+    from app.db.models import User
+    from app.services.membership import check_ai_quota, consume_ai_quota
+
+    headers = _register_and_login(client, "quota@example.com")
     db = SessionLocal()
     user = db.query(User).filter(User.email == "quota@example.com").first()
     for _ in range(10):
@@ -56,8 +42,12 @@ def test_ai_quota_enforcement():
     db.close()
 
 
-def test_vip_still_has_daily_quota():
+def test_vip_still_has_daily_quota(client):
     """VIP 状态不再绕过每日配额。"""
+    from app.db.connection import SessionLocal
+    from app.db.models import User
+    from app.services.membership import check_ai_quota, consume_ai_quota
+
     db = SessionLocal()
     user = User(email="vip_quota@example.com", password_hash="x")
     user.vip_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
@@ -71,7 +61,11 @@ def test_vip_still_has_daily_quota():
     db.close()
 
 
-def test_vip_extend_stacking():
+def test_vip_extend_stacking(client):
+    from app.db.connection import SessionLocal
+    from app.db.models import User
+    from app.services.membership import extend_vip
+
     db = SessionLocal()
     user = User(email="vip@example.com", password_hash="x")
     db.add(user)
@@ -85,12 +79,11 @@ def test_vip_extend_stacking():
     db.close()
 
 
-def test_webhook_idempotency(monkeypatch):
+def test_webhook_idempotency(client, monkeypatch):
     """同一 event_id 处理两次，VIP 只延长一次。"""
-    import billing as billing_mod
     import stripe
 
-    headers = _register_and_login("webhook@example.com")
+    headers = _register_and_login(client, "webhook@example.com")
     me = client.get("/api/auth/me", headers=headers)
     user_id = me.json()["data"]["id"]
 
@@ -123,21 +116,22 @@ def test_webhook_idempotency(monkeypatch):
     me2 = client.get("/api/auth/me", headers=headers)
     assert me2.json()["data"]["is_vip"] is True
 
+    from app.db.connection import SessionLocal
+    from app.db.models import Membership
+
     db = SessionLocal()
-    user = db.query(User).filter(User.id == user_id).first()
-    from models import Membership
     count = db.query(Membership).filter(Membership.user_id == user_id).count()
     assert count == 1
     db.close()
 
 
-def test_checkout_requires_auth():
+def test_checkout_requires_auth(client):
     res = client.post("/api/billing/checkout")
     assert res.status_code == 401
 
 
-def test_checkout_disabled_when_logged_in():
-    headers = _register_and_login("checkout_disabled@example.com")
+def test_checkout_disabled_when_logged_in(client):
+    headers = _register_and_login(client, "checkout_disabled@example.com")
     res = client.post("/api/billing/checkout", headers=headers)
     assert res.status_code == 503
     detail = res.json()["detail"]
