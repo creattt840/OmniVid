@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-import yt_dlp
+from ytdlp_utils import download as ytdlp_download, extract_info as ytdlp_extract_info
 
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import is_douyin_url
@@ -217,12 +217,7 @@ class SubtitleFetcher:
         return segments, meta
 
     def _fetch_ytdlp(self, url: str) -> tuple[list[Segment], dict]:
-        ydl_opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-        if not info:
-            return [], {}
+        info = ytdlp_extract_info(url, download=False)
 
         meta = {
             "title": info.get("title") or "未知标题",
@@ -262,9 +257,6 @@ class SubtitleFetcher:
         work_dir.mkdir(parents=True, exist_ok=True)
         try:
             ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "noplaylist": True,
                 "skip_download": True,
                 "outtmpl": str(work_dir / "%(id)s"),
                 "subtitlesformat": "vtt",
@@ -275,8 +267,7 @@ class SubtitleFetcher:
             else:
                 ydl_opts["writesubtitles"] = True
 
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+            ytdlp_download(url, **ydl_opts)
 
             for f in sorted(work_dir.iterdir()):
                 if f.suffix.lower() in (".vtt", ".srt", ".ass"):

@@ -1,12 +1,12 @@
 <template>
   <Teleport to="body">
-    <Transition name="fade">
+    <Transition name="overlay-fade">
       <div
         v-if="open"
         class="fixed inset-0 z-[150] flex justify-end"
         @click.self="$emit('close')"
       >
-        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+        <div class="overlay-backdrop" />
         <aside class="relative w-full max-w-sm bg-bg-card h-full shadow-2xl flex flex-col animate-slide-in">
           <div class="flex items-center justify-between px-5 py-4 border-b border-border-light">
             <h2 class="font-bold text-text-primary">分析历史</h2>
@@ -21,7 +21,7 @@
               </button>
               <button
                 type="button"
-                class="p-2 rounded-xl hover:bg-gray-100 text-text-muted cursor-pointer"
+                class="p-2 rounded-lg hover:bg-surface-muted text-text-muted cursor-pointer"
                 aria-label="关闭"
                 @click="$emit('close')"
               >
@@ -40,7 +40,7 @@
               v-for="item in items"
               :key="item.id"
               type="button"
-              class="w-full flex gap-3 p-3 rounded-2xl border border-border-light hover:border-primary/30 hover:bg-primary-light/30 text-left transition-all cursor-pointer group"
+              class="w-full flex gap-3 p-3 rounded-lg border border-border-light hover:border-primary/30 hover:bg-primary-light/30 text-left transition-all cursor-pointer group"
               @click="$emit('select', item.url)"
             >
               <div class="w-16 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
@@ -104,8 +104,6 @@ function handleClear() {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
 @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .animate-slide-in { animation: slide-in 0.25s ease; }
 </style>

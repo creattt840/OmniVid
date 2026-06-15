@@ -18,6 +18,7 @@ from pydantic import BaseModel, model_validator
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import DouyinParser, is_douyin_url
 from downloader import VideoDownloader
+from ytdlp_utils import format_ytdlp_error
 from local_upload import LocalUploadHandler, upload_store
 from subtitles import SubtitleFetcher, sanitize_filename
 from transcriber import Transcriber
@@ -165,7 +166,10 @@ async def parse_video(req: ParseRequest):
             result = await loop.run_in_executor(None, downloader.parse_video, req.url)
         return {"success": True, "data": result}
     except Exception as e:
-        raise HTTPException(status_code=400, detail={"success": False, "error": f"解析失败: {str(e)}"})
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"解析失败: {format_ytdlp_error(e, url=req.url)}"},
+        )
 
 
 @app.post("/api/download")
@@ -194,7 +198,10 @@ async def download_video(req: DownloadRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail={"success": False, "error": f"下载失败: {str(e)}"})
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"下载失败: {format_ytdlp_error(e, url=req.url)}"},
+        )
 
 
 @app.post("/api/direct-url")

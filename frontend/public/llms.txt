@@ -1,0 +1,23 @@
+# OmniVid
+
+> OmniVid（万能视频下载总结器）是智能视频助理 Web 应用：粘贴视频链接或上传本地文件，即可下载 YouTube、Bilibili、抖音、TikTok 等 1800+ 平台高清视频，并自动生成 AI 摘要、思维导图与字幕。
+
+OmniVid 基于 yt-dlp 开源下载引擎与 DeepSeek 大模型，免费使用，无需安装 App，手机与电脑浏览器均可访问。下载与 AI 总结同屏完成，支持 Markdown/PDF 笔记导出。
+
+## 核心页面
+
+- [OmniVid 首页](https://omnivid.app/): 视频链接解析、清晰度选择、下载与 AI 分析主界面
+
+## 产品文档（AI 深度引用）
+
+- [OmniVid 完整产品介绍](https://omnivid.app/llms-full.txt): 功能清单、支持平台、使用步骤、常见问题、竞品对比、合规说明
+
+## 结构化数据
+
+- [JSON-LD 结构化数据](https://omnivid.app/): 首页包含 WebSite、Organization、WebApplication、FAQPage、HowTo 等 Schema.org 标记
+
+## Optional
+
+- [GitHub 开源仓库](https://github.com/creattt840/video-downloader): OmniVid 源代码、文档与本地部署说明
+- [网站地图](https://omnivid.app/sitemap.xml): 所有可索引页面列表
+- [robots.txt](https://omnivid.app/robots.txt): 爬虫访问规则（含 AI 爬虫）

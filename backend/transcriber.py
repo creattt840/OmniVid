@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from typing import Optional
 
-import yt_dlp
+from ytdlp_utils import extract_info as ytdlp_extract_info
 
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import DouyinParser, is_douyin_url
@@ -178,9 +178,6 @@ class Transcriber:
         ydl_opts = {
             "format": "bestaudio/best",
             "outtmpl": outtmpl,
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
@@ -190,27 +187,27 @@ class Transcriber:
         if self.ffmpeg_path:
             ydl_opts["ffmpeg_location"] = self.ffmpeg_path
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            if not info:
-                return None, {}
+        info = ytdlp_extract_info(url, download=True, **ydl_opts)
+        if not info:
+            return None, {}
 
-            meta = {
-                "title": info.get("title") or "未知标题",
-                "duration": info.get("duration") or 0,
-                "platform": info.get("extractor", info.get("extractor_key", "Unknown")),
-            }
+        meta = {
+            "title": info.get("title") or "未知标题",
+            "duration": info.get("duration") or 0,
+            "platform": info.get("extractor", info.get("extractor_key", "Unknown")),
+        }
 
-            vid = info.get("id", "unknown")
-            mp3_path = self.download_dir / f"audio_{vid}.mp3"
-            if mp3_path.exists():
-                return mp3_path, meta
+        vid = info.get("id", "unknown")
+        mp3_path = self.download_dir / f"audio_{vid}.mp3"
+        if mp3_path.exists():
+            return mp3_path, meta
 
-            for f in self.download_dir.glob(f"audio_{vid}.*"):
-                return f, meta
+        for f in self.download_dir.glob(f"audio_{vid}.*"):
+            return f, meta
 
-            prepared = ydl.prepare_filename(info)
-            if os.path.exists(prepared):
-                return Path(prepared), meta
+        ext = info.get("ext", "mp3")
+        alt_path = self.download_dir / f"audio_{vid}.{ext}"
+        if alt_path.exists():
+            return alt_path, meta
 
         return None, meta

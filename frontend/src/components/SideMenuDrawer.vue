@@ -1,12 +1,12 @@
 <template>
   <Teleport to="body">
-    <Transition name="fade">
+    <Transition name="overlay-fade">
       <div
         v-if="open"
         class="fixed inset-0 z-[150] flex justify-start"
         @click.self="emit('close')"
       >
-        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+        <div class="overlay-backdrop" />
         <aside
           class="relative w-full max-w-xs bg-bg-card h-full shadow-2xl flex flex-col animate-slide-in-left"
           role="dialog"
@@ -24,7 +24,7 @@
             </div>
             <button
               type="button"
-              class="p-2 rounded-xl hover:bg-gray-100 text-text-muted cursor-pointer"
+              class="p-2 rounded-lg hover:bg-surface-muted text-text-muted cursor-pointer"
               aria-label="关闭菜单"
               @click="emit('close')"
             >
@@ -42,7 +42,7 @@
               <li v-for="item in toolItems" :key="item.id">
                 <button
                   type="button"
-                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-text-secondary hover:bg-surface-muted hover:text-primary transition-colors cursor-pointer"
                   @click="handleToolClick(item)"
                 >
                   <span class="w-5 h-5 flex-shrink-0 text-text-muted" v-html="iconSvg(item.icon)" />
@@ -55,7 +55,7 @@
                   </span>
                   <span
                     v-else-if="item.badge === 'soon'"
-                    class="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-text-muted rounded-full"
+                    class="px-1.5 py-0.5 text-[10px] font-medium bg-surface-muted text-text-muted rounded-full"
                   >
                     即将上线
                   </span>
@@ -69,7 +69,7 @@
               <li v-for="item in learnItems" :key="item.href">
                 <button
                   type="button"
-                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-text-secondary hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-text-secondary hover:bg-surface-muted hover:text-primary transition-colors cursor-pointer"
                   @click="handleNavigate(item.href)"
                 >
                   <svg class="w-5 h-5 flex-shrink-0 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,8 +159,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
 @keyframes slide-in-left { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 .animate-slide-in-left { animation: slide-in-left 0.25s ease; }
 </style>

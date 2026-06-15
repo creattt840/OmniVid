@@ -1,26 +1,31 @@
 <template>
-  <div class="min-h-screen flex flex-col bg-bg-page">
+  <div class="min-h-screen flex flex-col bg-bg-page" :class="{ 'focus-mode': !!videoData }">
     <AppHeader
       :history-count="historyItems.length"
+      :focus-mode="!!videoData"
       @login="showComingSoon('登录注册')"
       @history="historyOpen = true"
       @menu-open="menuOpen = true"
+      @navigate="handleMenuNavigate"
+      @new-parse="handleNewParse"
+      @upload-local="uploadModalOpen = true"
     />
 
     <main class="flex-1">
       <HeroSection
         @parse="handleParse"
+        @upload-local="uploadModalOpen = true"
         :loading="loading"
         :compact="!!videoData"
         :showSlogan="!videoData"
       />
 
       <!-- 解析结果：统一卡片双栏工作区 -->
-      <section v-if="videoData" class="pb-8 sm:pb-12 animate-fade-up">
+      <section v-if="videoData" class="pt-3 sm:pt-5 pb-8 sm:pb-12 animate-fade-up">
         <div class="page-container">
-          <div class="bg-bg-card rounded-3xl border border-border-light shadow-sm overflow-hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-5 items-start divide-y lg:divide-y-0 lg:divide-x divide-border-light">
-              <div class="lg:col-span-2">
+          <div class="workspace-card">
+            <div class="grid grid-cols-1 lg:grid-cols-5 items-start gap-5 lg:gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border-light">
+              <div class="lg:col-span-2 px-4 sm:px-5 lg:px-6 pt-4 sm:pt-5 lg:pt-6 pb-4 sm:pb-5 lg:pb-6">
                 <VideoResult
                   ref="videoResultRef"
                   compact
@@ -36,7 +41,7 @@
                   @download-subtitles="handleDownloadSubtitles"
                 />
               </div>
-              <div v-if="showSummary" class="lg:col-span-3 flex flex-col overflow-hidden max-h-[520px] sm:max-h-[580px] lg:max-h-[640px]">
+              <div v-if="showSummary" class="lg:col-span-3 flex flex-col overflow-hidden max-h-[min(75vh,800px)] px-4 sm:px-5 lg:px-6 pt-2 sm:pt-3 pb-4 sm:pb-5 lg:pb-6 lg:pl-5">
                 <VideoSummary
                   :key="summaryKey"
                   embedded
@@ -65,16 +70,18 @@
         </div>
       </div>
 
-      <PlatformSection />
-      <FeatureSection />
-      <HowToSection />
-      <PricingSection
-        @need-login="showComingSoon('登录注册')"
-        @open-vip="showComingSoon('VIP 付费')"
-      />
+      <template v-if="!videoData">
+        <PlatformSection />
+        <FeatureSection />
+        <HowToSection />
+        <PricingSection
+          @need-login="showComingSoon('登录注册')"
+          @open-vip="showComingSoon('VIP 付费')"
+        />
+      </template>
     </main>
 
-    <AppFooter />
+    <AppFooter :minimal="!!videoData" />
 
     <HistoryPanel
       :open="historyOpen"
@@ -106,7 +113,7 @@
       <Transition name="toast">
         <div
           v-if="toast"
-          class="fixed top-20 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl shadow-xl border text-sm font-medium"
+          class="fixed bottom-6 right-4 sm:right-6 z-[200] max-w-sm px-5 py-3 rounded-lg shadow-xl border text-sm font-medium"
           :class="toast.type === 'success'
             ? 'bg-green-50 border-green-200 text-green-800'
             : 'bg-bg-card border-border text-text-primary'"
@@ -339,8 +346,3 @@ async function handleDownloadSubtitles() {
 }
 
 </script>
-
-<style>
-.toast-enter-active, .toast-leave-active { transition: all 0.3s ease; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -10px); }
-</style>

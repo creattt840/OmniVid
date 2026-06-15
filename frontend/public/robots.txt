@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# 生产环境构建时会自动生成带 Sitemap 地址的 robots.txt

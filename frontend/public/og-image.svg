@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#F5F3FF"/>
+  <rect x="80" y="80" width="1040" height="470" rx="32" fill="#6366F1"/>
+  <circle cx="220" cy="315" r="72" fill="white" opacity="0.15"/>
+  <polygon points="200,275 200,355 270,315" fill="white"/>
+  <text x="320" y="280" fill="white" font-family="system-ui,sans-serif" font-size="64" font-weight="700">OmniVid</text>
+  <text x="320" y="360" fill="white" font-family="system-ui,sans-serif" font-size="36" opacity="0.9">(¿Æ‘} AI ;Ó</text>
+  <text x="320" y="420" fill="white" font-family="system-ui,sans-serif" font-size="24" opacity="0.75">YouTube · Bilibili · –ó · TikTok · 1800+ sð</text>
+</svg>

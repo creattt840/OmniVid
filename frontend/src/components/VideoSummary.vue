@@ -5,9 +5,17 @@
       : 'bg-bg-card rounded-3xl border border-border-light shadow-sm overflow-hidden animate-fade-up mt-6'"
   >
     <!-- 头部 -->
-    <div class="flex-shrink-0 px-5 sm:px-6 py-4 border-b border-border-light flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="text-xl">🤖</span>
+    <div
+      class="flex-shrink-0 border-b border-border-light flex items-center justify-between gap-3"
+      :class="embedded ? 'px-1 py-2' : 'px-5 sm:px-6 py-4'"
+    >
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 rounded-lg bg-primary-light flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
         <div class="min-w-0">
           <h3 class="font-bold text-text-primary truncate">AI 分析</h3>
           <p v-if="!embedded" class="text-xs text-text-muted truncate">
@@ -24,7 +32,7 @@
       <button
         v-if="!embedded"
         @click="$emit('close')"
-        class="flex-shrink-0 p-2 rounded-xl hover:bg-gray-100 text-text-muted transition-colors cursor-pointer"
+        class="flex-shrink-0 p-2 rounded-lg hover:bg-surface-muted text-text-muted transition-colors cursor-pointer"
         aria-label="关闭"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +42,11 @@
     </div>
 
     <!-- 状态栏 -->
-    <div v-if="phase !== 'ready' || rewriteLoading" class="flex-shrink-0 px-5 sm:px-6 py-3 bg-primary-light/50 border-b border-border-light">
+    <div
+      v-if="phase !== 'ready' || rewriteLoading"
+      class="flex-shrink-0 bg-primary-light/50 border-b border-border-light"
+      :class="embedded ? 'px-1 py-2' : 'px-5 sm:px-6 py-3'"
+    >
       <div class="flex items-center gap-2 text-sm text-primary">
         <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -50,16 +62,19 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex-shrink-0 flex border-b border-border-light overflow-x-auto">
+    <div
+      class="flex-shrink-0 flex items-center gap-1 border-b border-border-light overflow-x-auto"
+      :class="embedded ? 'px-0 py-1' : 'px-3 sm:px-4 py-2'"
+    >
       <button
         v-for="tab in tabs"
         :key="tab.id"
         @click="activeTab = tab.id"
         :class="[
-          'flex-shrink-0 px-4 sm:px-5 py-3 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px',
+          'flex-shrink-0 px-3 sm:px-4 py-2 text-sm font-medium transition-colors cursor-pointer rounded-lg',
           activeTab === tab.id
-            ? 'border-primary text-primary'
-            : 'border-transparent text-text-muted hover:text-text-primary'
+            ? 'bg-primary-light text-primary'
+            : 'text-text-muted hover:text-text-primary hover:bg-surface-muted'
         ]"
       >
         {{ tab.label }}
@@ -87,8 +102,8 @@
 
     <!-- Tab 内容（固定高度区域内滚动） -->
     <div
-      class="flex-1 min-h-0 p-5 sm:p-6 overflow-y-auto"
-      :class="embedded ? '' : 'min-h-[280px] max-h-[520px]'"
+      class="flex-1 min-h-0 overflow-y-auto"
+      :class="embedded ? 'p-3 sm:p-4' : 'p-5 sm:p-6 min-h-[280px] max-h-[520px]'"
     >
       <!-- 摘要 -->
       <div v-show="activeTab === 'summary'" class="flex gap-4">
@@ -105,17 +120,17 @@
         <!-- 生成中：其他区块骨架屏 -->
         <template v-if="phase === 'summarizing'">
           <section v-if="!streamingSummary" class="py-4">
-            <div class="h-4 w-16 bg-gray-200 rounded animate-pulse mb-3" />
+            <div class="h-4 w-16 bg-surface-muted rounded animate-pulse mb-3" />
             <div class="space-y-2">
-              <div class="h-3 bg-gray-100 rounded animate-pulse" />
-              <div class="h-3 bg-gray-100 rounded animate-pulse w-5/6" />
-              <div class="h-3 bg-gray-100 rounded animate-pulse w-4/6" />
+              <div class="h-3 bg-surface-muted rounded animate-pulse" />
+              <div class="h-3 bg-surface-muted rounded animate-pulse w-5/6" />
+              <div class="h-3 bg-surface-muted rounded animate-pulse w-4/6" />
             </div>
           </section>
           <section class="py-2">
-            <div class="h-4 w-20 bg-gray-200 rounded animate-pulse mb-3" />
+            <div class="h-4 w-20 bg-surface-muted rounded animate-pulse mb-3" />
             <div class="space-y-2">
-              <div v-for="n in 3" :key="n" class="h-3 bg-gray-100 rounded animate-pulse" :class="n === 3 ? 'w-2/3' : ''" />
+              <div v-for="n in 3" :key="n" class="h-3 bg-surface-muted rounded animate-pulse" :class="n === 3 ? 'w-2/3' : ''" />
             </div>
           </section>
         </template>

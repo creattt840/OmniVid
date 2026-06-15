@@ -3,7 +3,7 @@ import re
 import shutil
 from typing import Optional
 
-import yt_dlp
+from ytdlp_utils import download as ytdlp_download, extract_info as ytdlp_extract_info
 
 
 def _find_ffmpeg_path() -> Optional[str]:
@@ -53,17 +53,7 @@ class VideoDownloader:
         return f"{minutes}:{secs:02d}"
 
     def parse_video(self, url: str) -> dict:
-        ydl_opts = {
-            "quiet": True,
-            "no_warnings": True,
-            "extract_flat": False,
-            "noplaylist": True,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-        if not info:
-            raise ValueError("无法解析该链接")
+        info = ytdlp_extract_info(url, download=False)
 
         formats = self._extract_formats(info)
         platform = info.get("extractor", info.get("extractor_key", "Unknown"))
@@ -154,20 +144,13 @@ class VideoDownloader:
         ydl_opts = {
             "format": format_id,
             "outtmpl": os.path.join(self.DOWNLOAD_DIR, "%(title)s.%(ext)s"),
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
         }
 
         if self.has_ffmpeg:
             ydl_opts["ffmpeg_location"] = self.ffmpeg_path
             ydl_opts["merge_output_format"] = "mp4"
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-
-        if not info:
-            raise ValueError("下载失败")
+        info = ytdlp_extract_info(url, download=True, **ydl_opts)
 
         title = self._sanitize_filename(info.get("title", "video"))
         ext = info.get("ext", "mp4")
@@ -175,7 +158,7 @@ class VideoDownloader:
         filepath = os.path.join(self.DOWNLOAD_DIR, filename)
 
         if not os.path.exists(filepath):
-            prepared = ydl.prepare_filename(info)
+            prepared = os.path.join(self.DOWNLOAD_DIR, f"{title}.{ext}")
             if os.path.exists(prepared):
                 filepath = prepared
                 filename = os.path.basename(prepared)
@@ -194,18 +177,7 @@ class VideoDownloader:
         }
 
     def get_direct_url(self, url: str, format_id: str) -> dict:
-        ydl_opts = {
-            "format": format_id,
-            "quiet": True,
-            "no_warnings": True,
-            "noplaylist": True,
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-        if not info:
-            raise ValueError("无法获取直链")
+        info = ytdlp_extract_info(url, download=False, format=format_id)
 
         direct_url = info.get("url")
         if not direct_url:

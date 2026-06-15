@@ -2,6 +2,8 @@
 
 基于 **yt-dlp** 的智能视频助理，支持 YouTube、Bilibili、抖音、TikTok 等 1800+ 平台。粘贴链接即可解析下载，并自动生成 AI 摘要、思维导图与字幕。
 
+[![GitHub](https://img.shields.io/badge/GitHub-creattt840%2Fvideo--downloader-6366F1?style=flat&logo=github)](https://github.com/creattt840/video-downloader)
+
 ## 功能
 
 - 视频链接解析（标题、缩略图、清晰度列表）
@@ -14,6 +16,7 @@
 - B 站专用解析（绕过 412 反爬）
 - 字幕独立下载（SRT / VTT / TXT，含 Whisper 兜底）
 - 柔紫 Indigo 主题响应式前端
+- 平台介绍区官方品牌 Logo（YouTube / Bilibili 小电视 / TikTok / X / Instagram / Twitch）
 
 ## 快速开始
 
@@ -41,6 +44,16 @@ npm run dev
 
 浏览器访问 http://localhost:5173
 
+### 生产构建（SEO / GEO）
+
+```bash
+cd frontend
+cp .env.example .env   # 设置 VITE_SITE_URL 为正式域名
+npm run build          # 生成 sitemap、robots.txt、llms.txt 等
+```
+
+详见 [SEO 与 GEO 优化指南](docs/SEO与GEO优化.md)。
+
 ## 项目结构
 
 ```
@@ -48,6 +61,9 @@ video-downloader/
 ├── docs/           # 需求分析 + 方案设计 + 阶段总结
 ├── backend/        # FastAPI + yt-dlp + AI
 └── frontend/       # Vue 3 + Tailwind CSS v4
+    ├── geo/            # llms.txt / llms-full.txt 源文件（GEO）
+    ├── plugins/        # 构建时 SEO/GEO 生成插件
+    └── public/logos/   # 平台官方品牌图标（SVG/PNG）
 ```
 
 ## API 文档
@@ -56,7 +72,9 @@ video-downloader/
 
 ## 文档
 
+- [SEO 与 GEO 优化指南](docs/SEO与GEO优化.md)
 - [本地运行指南](docs/本地运行指南.md)
 - [阶段总结-本地视频上传解析](docs/阶段总结-本地视频上传解析.md)
+- [阶段总结-平台图标与体验优化](docs/阶段总结-平台图标与体验优化.md)
 - [阶段总结-功能扩展与导航优化](docs/阶段总结-功能扩展与导航优化.md)
 - [阶段总结-前端体验优化](docs/阶段总结-前端体验优化.md)

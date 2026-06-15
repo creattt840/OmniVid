@@ -1,14 +1,14 @@
 <template>
   <Teleport to="body">
-    <Transition name="fade">
+    <Transition name="overlay-fade">
       <div
         v-if="open"
         class="fixed inset-0 z-[160] flex items-center justify-center p-4"
         @click.self="!uploading && emit('close')"
       >
-        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        <div class="overlay-backdrop" />
         <div
-          class="relative w-full max-w-lg bg-bg-card rounded-3xl border border-border-light shadow-2xl overflow-hidden animate-fade-up"
+          class="relative w-full max-w-lg bg-bg-card rounded-2xl border border-border-light shadow-2xl overflow-hidden animate-fade-up"
           role="dialog"
           aria-label="上传本地视频"
         >
@@ -20,7 +20,7 @@
             </div>
             <button
               type="button"
-              class="p-2 rounded-xl hover:bg-gray-100 text-text-muted cursor-pointer disabled:opacity-40"
+              class="p-2 rounded-lg hover:bg-surface-muted text-text-muted cursor-pointer disabled:opacity-40"
               :disabled="uploading"
               aria-label="关闭"
               @click="emit('close')"
@@ -39,7 +39,7 @@
                 ? 'border-primary bg-primary-light/30'
                 : mediaFile
                   ? 'border-primary/40 bg-primary-light/10'
-                  : 'border-border hover:border-primary/40 hover:bg-gray-50'"
+                  : 'border-border hover:border-primary/40 hover:bg-surface-muted'"
               @click="!uploading && mediaInput?.click()"
               @dragover.prevent="dragOver = true"
               @dragleave.prevent="dragOver = false"
@@ -218,8 +218,6 @@ async function handleUpload() {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
 @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fade-up { animation: fade-up 0.25s ease; }
 </style>

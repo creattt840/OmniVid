@@ -1,18 +1,18 @@
 <template>
-  <section id="pricing" class="py-14 sm:py-20 bg-bg-card" aria-labelledby="pricing-heading">
+  <section id="pricing" class="py-14 sm:py-20 bg-bg-card border-t border-border-light" aria-labelledby="pricing-heading">
     <div class="page-container">
       <div class="text-center mb-10 sm:mb-14">
-        <h2 id="pricing-heading" class="text-2xl sm:text-3xl font-bold text-text-primary mb-3">
+        <h2 id="pricing-heading" class="section-title mb-3">
           选择适合你的<span class="text-primary">下载方案</span>
         </h2>
-        <p class="text-text-secondary max-w-lg mx-auto">
+        <p class="section-desc">
           免费版满足日常需求，VIP 解锁 AI 总结等全部高级功能
         </p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto">
         <!-- 免费版 -->
-        <div class="bg-bg-page rounded-3xl border border-border p-7 flex flex-col">
+        <div class="card-surface p-7 flex flex-col">
           <div class="mb-5">
             <h3 class="text-lg font-bold text-text-primary mb-1">免费版</h3>
             <p class="text-sm text-text-secondary">满足基础下载需求</p>
@@ -30,7 +30,7 @@
             </li>
           </ul>
           <button
-            class="w-full h-12 rounded-full border border-border text-sm font-semibold text-text-primary hover:bg-gray-50 transition-colors cursor-pointer"
+            class="w-full h-12 rounded-lg border border-border text-sm font-semibold text-text-primary hover:bg-surface-muted transition-colors cursor-pointer"
             @click="$emit('need-login')"
           >
             免费使用
@@ -38,11 +38,11 @@
         </div>
 
         <!-- VIP 版 -->
-        <div class="relative bg-gradient-to-br from-primary to-primary-dark rounded-3xl p-7 flex flex-col text-white overflow-hidden shadow-xl">
+        <div class="relative bg-gradient-to-br from-primary to-primary-dark rounded-2xl p-7 flex flex-col text-white overflow-hidden shadow-xl">
           <div class="absolute top-4 right-4 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-sm">
-            推荐
+            最受欢迎
           </div>
-          <div class="absolute -top-20 -right-20 w-56 h-56 bg-white/5 rounded-full"></div>
+          <div class="absolute -top-20 -right-20 w-56 h-56 bg-white/5 rounded-full" />
           <div class="relative">
             <div class="mb-5">
               <h3 class="text-lg font-bold mb-1">VIP 高级版</h3>
@@ -62,7 +62,7 @@
               </li>
             </ul>
             <button
-              class="w-full h-12 rounded-full bg-white text-primary font-semibold text-sm hover:bg-white/90 transition-colors shadow-md cursor-pointer"
+              class="w-full h-12 rounded-lg bg-white text-primary font-semibold text-sm hover:bg-white/90 transition-colors shadow-md cursor-pointer"
               @click="$emit('open-vip')"
             >
               开通 VIP

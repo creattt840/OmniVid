@@ -5,7 +5,7 @@
       : 'animate-fade-up bg-bg-card border border-border-light shadow-sm overflow-hidden ' + (compact ? 'rounded-2xl' : 'rounded-3xl')"
   >
     <!-- 本地模式：页内播放器 -->
-    <div v-if="localMode" class="relative aspect-video bg-black">
+    <div v-if="localMode" class="relative aspect-video bg-black" :class="workspace ? 'rounded-lg overflow-hidden' : ''">
       <video
         v-if="previewUrl && !isAudioOnly"
         ref="videoEl"
@@ -41,7 +41,7 @@
     </div>
 
     <!-- URL 模式：缩略图 -->
-    <div v-else class="relative aspect-video bg-gray-100">
+    <div v-else class="relative aspect-video bg-gray-100" :class="workspace ? 'rounded-lg overflow-hidden' : ''">
       <img
         v-if="video.thumbnail"
         :src="thumbnailUrl"
