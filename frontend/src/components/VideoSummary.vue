@@ -155,7 +155,7 @@
                   <span class="text-xs font-mono text-primary bg-primary-light px-2 py-0.5 rounded-lg">{{ ch.time }}</span>
                   <span class="text-sm font-medium text-text-primary flex-1">{{ ch.title }}</span>
                   <a
-                    v-if="videoUrl"
+                    v-if="videoUrl && !localMode"
                     :href="buildTimestampUrl(ch.time)"
                     target="_blank"
                     rel="noopener"
@@ -226,21 +226,23 @@
             >
               {{ fmt.label }}
             </button>
-            <span class="text-xs text-text-muted ml-1">翻译：</span>
-            <select
-              v-model="translateLang"
-              class="px-2 py-1 rounded-lg text-xs border border-border-light text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-            >
-              <option v-for="lang in translateLangs" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
-            </select>
-            <button
-              type="button"
-              class="px-3 py-1 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary-light transition-colors cursor-pointer disabled:opacity-50"
-              :disabled="translating"
-              @click="handleTranslateDownload"
-            >
-              {{ translating ? '翻译中...' : '翻译下载 SRT' }}
-            </button>
+            <template v-if="!localMode">
+              <span class="text-xs text-text-muted ml-1">翻译：</span>
+              <select
+                v-model="translateLang"
+                class="px-2 py-1 rounded-lg text-xs border border-border-light text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+              >
+                <option v-for="lang in translateLangs" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
+              </select>
+              <button
+                type="button"
+                class="px-3 py-1 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary-light transition-colors cursor-pointer disabled:opacity-50"
+                :disabled="translating"
+                @click="handleTranslateDownload"
+              >
+                {{ translating ? '翻译中...' : '翻译下载 SRT' }}
+              </button>
+            </template>
           </div>
           <div ref="transcriptContainer" class="space-y-1 font-mono text-xs">
             <div
@@ -301,13 +303,18 @@
             v-for="(msg, i) in chatMessages"
             :key="i"
             :class="[
-              'max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
+              'rounded-2xl text-sm leading-relaxed',
               msg.role === 'user'
-                ? 'ml-auto bg-primary text-white rounded-br-md'
-                : 'bg-gray-100 text-text-secondary rounded-bl-md'
+                ? 'max-w-[85%] ml-auto px-4 py-2.5 bg-primary text-white rounded-br-md whitespace-pre-wrap'
+                : 'max-w-full px-4 py-3 bg-gray-50 text-text-secondary rounded-bl-md border border-border-light'
             ]"
           >
-            {{ msg.content }}
+            <div
+              v-if="msg.role === 'assistant'"
+              class="article-content chat-md"
+              v-html="renderMarkdown(msg.content)"
+            />
+            <template v-else>{{ msg.content }}</template>
             <span v-if="msg.streaming" class="inline-block w-1.5 h-3.5 bg-current opacity-60 animate-pulse ml-0.5" />
           </div>
         </div>
@@ -343,13 +350,15 @@ import { parseTimeString, buildVideoUrlWithTimestamp } from '../utils/timeUtils.
 import { renderMarkdown } from '../utils/markdownRender.js'
 
 const props = defineProps({
-  url: { type: String, required: true },
+  url: { type: String, default: '' },
+  fileId: { type: String, default: '' },
+  localMode: Boolean,
   embedded: Boolean,
   videoUrl: { type: String, default: '' },
   thumbnail: { type: String, default: '' },
 })
 
-const emit = defineEmits(['close', 'completed'])
+const emit = defineEmits(['close', 'completed', 'seek-video'])
 
 const tabs = [
   { id: 'summary', label: '摘要' },
@@ -416,6 +425,9 @@ function buildTimestampUrl(timeStr) {
 function jumpToChapter(ch, index) {
   activeTab.value = 'transcript'
   const seconds = parseTimeString(ch.time)
+  if (props.localMode) {
+    emit('seek-video', seconds)
+  }
   nextTick(() => {
     let targetIdx = 0
     for (let i = 0; i < segments.value.length; i++) {
@@ -509,7 +521,9 @@ function saveToHistory() {
   if (historySaved.value || !summary.value.summary) return
   historySaved.value = true
   emit('completed', {
-    url: props.url,
+    url: props.url || `local://${props.fileId}`,
+    source: props.localMode ? 'local' : 'url',
+    fileId: props.fileId || undefined,
     title: meta.value.title,
     platform: meta.value.platform,
     thumbnail: props.thumbnail,
@@ -539,11 +553,19 @@ watch(activeTab, async (tab) => {
 })
 
 async function runAnalysis() {
+  if (!props.url && !props.fileId) {
+    phase.value = 'error'
+    error.value = '缺少视频来源'
+    return
+  }
   phase.value = 'preparing'
   error.value = ''
   try {
     phase.value = 'transcribing'
-    const res = await startAnalyze(props.url)
+    const res = await startAnalyze({
+      url: props.url || undefined,
+      fileId: props.fileId || undefined,
+    })
     if (!res.success) throw new Error(res.error || '分析失败')
 
     sessionId.value = res.data.session_id

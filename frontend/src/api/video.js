@@ -37,3 +37,39 @@ export async function healthCheck() {
   const { data } = await api.get('/health')
   return data
 }
+
+/** 触发浏览器保存 Blob 文件 */
+export function triggerBlobDownload(blob, filename) {
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  window.URL.revokeObjectURL(url)
+}
+
+/**
+ * 尝试通过 fetch 直链下载（跨域 CDN 不支持 <a download>，需先拉取 Blob）
+ * @returns {boolean} 是否成功
+ */
+export async function downloadFromDirectUrl(directUrl, filename) {
+  try {
+    const resp = await fetch(directUrl)
+    if (!resp.ok) return false
+    const blob = await resp.blob()
+    triggerBlobDownload(blob, filename)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** 从 Content-Disposition 响应头解析文件名 */
+export function parseFilenameFromDisposition(contentDisposition, fallback = 'video.mp4') {
+  if (!contentDisposition) return fallback
+  const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;\n]+)/i)
+  if (!match) return fallback
+  return decodeURIComponent(match[1].replace(/"/g, ''))
+}

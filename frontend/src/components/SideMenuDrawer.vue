@@ -104,7 +104,7 @@ const emit = defineEmits(['close', 'new-parse', 'history', 'upload-local', 'navi
 const toolItems = [
   { id: 'new-parse', label: '新建解析', icon: 'plus' },
   { id: 'history', label: '分析历史', icon: 'clock', badge: 'count' },
-  { id: 'upload-local', label: '本地视频上传', icon: 'upload', badge: 'soon' },
+  { id: 'upload-local', label: '本地视频上传', icon: 'upload' },
   { id: 'help', label: '使用帮助', icon: 'help', href: '#howto' },
 ]
 

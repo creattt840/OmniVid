@@ -1,6 +1,8 @@
 import asyncio
 import os
+import shutil
 from contextlib import asynccontextmanager
+from typing import Optional
 from urllib.parse import quote
 
 from dotenv import load_dotenv
@@ -8,14 +10,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import DouyinParser, is_douyin_url
 from downloader import VideoDownloader
+from local_upload import LocalUploadHandler, upload_store
 from subtitles import SubtitleFetcher, sanitize_filename
 from transcriber import Transcriber
 from summarizer import VideoAnalyzer
@@ -33,16 +36,27 @@ transcriber = Transcriber(
     max_duration=int(os.getenv("WHISPER_MAX_DURATION", "3600")),
 )
 video_analyzer = VideoAnalyzer(subtitle_fetcher, transcriber)
+local_upload_handler = LocalUploadHandler(
+    download_dir=downloader.DOWNLOAD_DIR,
+    ffmpeg_path=downloader.ffmpeg_path,
+    max_size_mb=int(os.getenv("UPLOAD_MAX_SIZE_MB", "500")),
+    max_duration=int(os.getenv("UPLOAD_MAX_DURATION", os.getenv("WHISPER_MAX_DURATION", "3600"))),
+)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
+    upload_store.cleanup_all()
     download_dir = downloader.DOWNLOAD_DIR
     if os.path.exists(download_dir):
-        for f in os.listdir(download_dir):
+        for name in os.listdir(download_dir):
+            path = os.path.join(download_dir, name)
             try:
-                os.remove(os.path.join(download_dir, f))
+                if os.path.isdir(path) and name.startswith("upload_"):
+                    shutil.rmtree(path, ignore_errors=True)
+                elif os.path.isfile(path):
+                    os.remove(path)
             except OSError:
                 pass
 
@@ -73,7 +87,16 @@ class DownloadRequest(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    url: str
+    url: Optional[str] = None
+    file_id: Optional[str] = None
+
+    @model_validator(mode="after")
+    def check_one_of(self):
+        has_url = bool(self.url and self.url.strip())
+        has_file = bool(self.file_id and self.file_id.strip())
+        if has_url == has_file:
+            raise ValueError("请提供 url 或 file_id 其中之一")
+        return self
 
 
 class SubtitleDownloadRequest(BaseModel):
@@ -99,6 +122,35 @@ async def health_check():
         "ffmpeg": downloader.has_ffmpeg,
         "ai_available": video_analyzer.is_ai_available(),
     }
+
+
+@app.post("/api/upload")
+async def upload_local_file(
+    media: UploadFile = File(...),
+    subtitle: Optional[UploadFile] = File(None),
+):
+    try:
+        data = await local_upload_handler.save_upload(media, subtitle)
+        return {"success": True, "data": data}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"success": False, "error": str(e)})
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"上传失败: {str(e)}"},
+        )
+
+
+@app.get("/api/upload/{file_id}/stream")
+async def stream_uploaded_file(file_id: str):
+    record = upload_store.get(file_id)
+    if not record or not record.media_path.exists():
+        raise HTTPException(status_code=404, detail={"success": False, "error": "文件不存在或已过期"})
+    return FileResponse(
+        path=str(record.media_path),
+        media_type=local_upload_handler.get_media_type(record),
+        filename=f"{record.title}.{record.ext}",
+    )
 
 
 @app.post("/api/parse")
@@ -253,9 +305,17 @@ async def download_subtitles(req: SubtitleDownloadRequest):
 async def start_analyze(req: AnalyzeRequest):
     try:
         loop = asyncio.get_event_loop()
-        session = await loop.run_in_executor(
-            None, video_analyzer.prepare_transcript, req.url
-        )
+        if req.file_id:
+            record = upload_store.get(req.file_id.strip())
+            if not record:
+                raise ValueError("上传文件不存在或已过期，请重新上传")
+            session = await loop.run_in_executor(
+                None, video_analyzer.prepare_transcript_from_file, record
+            )
+        else:
+            session = await loop.run_in_executor(
+                None, video_analyzer.prepare_transcript, req.url.strip()
+            )
         return {
             "success": True,
             "data": {
@@ -268,6 +328,11 @@ async def start_analyze(req: AnalyzeRequest):
                 "ai_available": video_analyzer.is_ai_available(),
             },
         }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": str(e)},
+        )
     except Exception as e:
         raise HTTPException(
             status_code=400,

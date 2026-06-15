@@ -151,6 +151,11 @@ def _parse_json3(content: str) -> list[Segment]:
     return segments
 
 
+def parse_subtitle_file(content: str, ext: str = "") -> list[Segment]:
+    """解析本地 SRT/VTT 字幕文件内容。"""
+    return _parse_subtitle_content(content, ext)
+
+
 def _parse_subtitle_content(content: str, ext: str = "") -> list[Segment]:
     content = content.strip()
     if not content:

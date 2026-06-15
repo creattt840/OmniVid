@@ -45,11 +45,12 @@ async function consumeSSE(url, options, onEvent) {
   }
 }
 
-export async function startAnalyze(url) {
+export async function startAnalyze({ url, fileId } = {}) {
+  const body = url ? { url } : { file_id: fileId }
   const resp = await fetch('/api/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(body),
   })
   const data = await resp.json()
   if (!resp.ok) {

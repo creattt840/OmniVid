@@ -133,11 +133,30 @@ body {
   list-style: disc;
 }
 
+.article-content ol {
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 1.35rem;
+  list-style: decimal;
+}
+
 .article-content li {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   line-height: 1.65;
   margin-bottom: 0.25rem;
+}
+
+/* AI 问答 Markdown 气泡内间距微调 */
+.chat-md.article-content h2:first-child,
+.chat-md.article-content h3:first-child,
+.chat-md.article-content p:first-child {
+  margin-top: 0;
+}
+
+.chat-md.article-content p:last-child,
+.chat-md.article-content ul:last-child,
+.chat-md.article-content ol:last-child {
+  margin-bottom: 0;
 }
 
 .article-content strong {

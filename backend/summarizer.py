@@ -10,7 +10,7 @@ from typing import Generator, Optional
 
 from openai import OpenAI
 
-from subtitles import SubtitleFetcher
+from subtitles import SubtitleFetcher, parse_subtitle_file
 from summary_parser import extract_partial_summary, parse_summary_json
 
 logger = logging.getLogger("summarizer")
@@ -123,6 +123,53 @@ class VideoAnalyzer:
             title=meta.get("title") or "未知标题",
             duration=meta.get("duration") or 0,
             platform=meta.get("platform") or "Unknown",
+            transcript_source=source,
+            segments=segments,
+        )
+
+    def prepare_transcript_from_file(self, record) -> AnalysisSession:
+        """从本地上传记录准备转录：优先外挂字幕，否则 Whisper。"""
+        from local_upload import UploadRecord
+
+        if not isinstance(record, UploadRecord):
+            raise ValueError("无效的上传记录")
+
+        meta = {
+            "title": record.title,
+            "duration": record.duration,
+            "platform": "本地文件",
+        }
+        segments: list = []
+        source = "subtitle"
+
+        if record.subtitle_path and record.subtitle_path.exists():
+            content = record.subtitle_path.read_text(encoding="utf-8", errors="replace")
+            ext = record.subtitle_path.suffix.lstrip(".").lower()
+            segments = parse_subtitle_file(content, ext)
+            if not segments:
+                raise ValueError("外挂字幕文件解析失败，请检查格式")
+
+        if not segments:
+            if not self.transcriber:
+                raise ValueError("无法获取视频转录文本（无字幕且未配置转写引擎）")
+            try:
+                segments, meta = self.transcriber.transcribe_file(
+                    record.media_path,
+                    meta=meta,
+                )
+                source = "whisper"
+            except ValueError as e:
+                raise ValueError(f"无法获取视频转录文本：{e}") from e
+
+        if not segments:
+            raise ValueError("无法获取视频转录文本（无字幕且语音转写失败）")
+
+        file_ref = f"local://{record.file_id}"
+        return session_store.create(
+            url=file_ref,
+            title=meta.get("title") or record.title,
+            duration=meta.get("duration") or record.duration,
+            platform="本地文件",
             transcript_source=source,
             segments=segments,
         )

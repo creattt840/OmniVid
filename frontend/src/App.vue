@@ -22,8 +22,11 @@
             <div class="grid grid-cols-1 lg:grid-cols-5 items-start divide-y lg:divide-y-0 lg:divide-x divide-border-light">
               <div class="lg:col-span-2">
                 <VideoResult
+                  ref="videoResultRef"
                   compact
                   workspace
+                  :local-mode="sourceMode === 'local'"
+                  :preview-url="previewUrl"
                   :video="videoData"
                   :downloading="downloading"
                   :downloadingSubtitles="downloadingSubtitles"
@@ -35,11 +38,15 @@
               </div>
               <div v-if="showSummary" class="lg:col-span-3 flex flex-col overflow-hidden max-h-[520px] sm:max-h-[580px] lg:max-h-[640px]">
                 <VideoSummary
+                  :key="summaryKey"
                   embedded
                   :url="currentUrl"
-                  :video-url="currentUrl"
+                  :file-id="fileId"
+                  :local-mode="sourceMode === 'local'"
+                  :video-url="sourceMode === 'url' ? currentUrl : ''"
                   :thumbnail="videoData?.thumbnail || ''"
                   @completed="handleAnalysisCompleted"
+                  @seek-video="handleSeekVideo"
                 />
               </div>
             </div>
@@ -88,6 +95,12 @@
       @navigate="handleMenuNavigate"
     />
 
+    <LocalUploadModal
+      :open="uploadModalOpen"
+      @close="uploadModalOpen = false"
+      @success="handleUploadSuccess"
+    />
+
     <!-- Toast 提示 -->
     <Teleport to="body">
       <Transition name="toast">
@@ -106,19 +119,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import HeroSection from './components/HeroSection.vue'
 import VideoResult from './components/VideoResult.vue'
 import VideoSummary from './components/VideoSummary.vue'
 import HistoryPanel from './components/HistoryPanel.vue'
 import SideMenuDrawer from './components/SideMenuDrawer.vue'
+import LocalUploadModal from './components/LocalUploadModal.vue'
 import PlatformSection from './components/PlatformSection.vue'
 import FeatureSection from './components/FeatureSection.vue'
 import HowToSection from './components/HowToSection.vue'
 import PricingSection from './components/PricingSection.vue'
 import AppFooter from './components/AppFooter.vue'
-import { parseVideo, downloadViaServer, downloadSubtitles, getDirectUrl } from './api/video.js'
+import { parseVideo, downloadViaServer, downloadSubtitles, getDirectUrl, downloadFromDirectUrl, triggerBlobDownload, parseFilenameFromDisposition } from './api/video.js'
+import { getUploadStreamUrl } from './api/upload.js'
 import { loadHistory, saveHistoryItem, removeHistoryItem, clearHistory } from './utils/historyStore.js'
 
 const loading = ref(false)
@@ -127,6 +142,8 @@ const downloadingSubtitles = ref(false)
 const subtitleLoadingText = ref('字幕处理中...')
 const videoData = ref(null)
 const currentUrl = ref('')
+const fileId = ref('')
+const sourceMode = ref('url') // 'url' | 'local'
 const parseError = ref('')
 const downloadError = ref('')
 const toast = ref(null)
@@ -134,6 +151,20 @@ const showSummary = ref(false)
 const historyOpen = ref(false)
 const historyItems = ref([])
 const menuOpen = ref(false)
+const uploadModalOpen = ref(false)
+const videoResultRef = ref(null)
+
+const previewUrl = computed(() => {
+  if (sourceMode.value === 'local' && fileId.value) {
+    return getUploadStreamUrl(fileId.value)
+  }
+  return ''
+})
+
+/** 切换视频来源时强制重建 VideoSummary，避免复用旧分析状态 */
+const summaryKey = computed(() =>
+  sourceMode.value === 'local' ? `local:${fileId.value}` : `url:${currentUrl.value}`,
+)
 
 onMounted(() => {
   historyItems.value = loadHistory()
@@ -150,6 +181,11 @@ function handleAnalysisCompleted(item) {
 
 function handleHistorySelect(url) {
   historyOpen.value = false
+  if (url.startsWith('local://')) {
+    showToast('本地文件会话已过期，请重新上传', 'info')
+    uploadModalOpen.value = true
+    return
+  }
   handleParse(url)
 }
 
@@ -167,6 +203,8 @@ function resetWorkspace() {
   videoData.value = null
   showSummary.value = false
   currentUrl.value = ''
+  fileId.value = ''
+  sourceMode.value = 'url'
   parseError.value = ''
   downloadError.value = ''
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -184,7 +222,23 @@ function handleMenuHistory() {
 
 function handleMenuUploadLocal() {
   menuOpen.value = false
-  showComingSoon('本地视频文件上传解析')
+  uploadModalOpen.value = true
+}
+
+async function handleUploadSuccess(data) {
+  resetWorkspace()
+  // 等待卸载旧 VideoSummary，避免同 tick 批处理导致组件复用、残留上次分析
+  await nextTick()
+  sourceMode.value = 'local'
+  fileId.value = data.file_id
+  videoData.value = data
+  showSummary.value = true
+  showToast('上传成功，正在生成 AI 摘要...', 'success')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function handleSeekVideo(seconds) {
+  videoResultRef.value?.seekTo(seconds)
 }
 
 function handleMenuNavigate(href) {
@@ -208,6 +262,8 @@ async function handleParse(url) {
   downloadError.value = ''
   showSummary.value = false
   currentUrl.value = url
+  fileId.value = ''
+  sourceMode.value = 'url'
 
   try {
     const res = await parseVideo(url)
@@ -230,40 +286,25 @@ async function handleDownload(formatId) {
   downloading.value = true
   downloadError.value = ''
   try {
-    // 优先尝试直链下载，减少服务器带宽
+    // 优先尝试直链下载（fetch → Blob），跨域 CDN 不能用 <a download> + target=_blank
     try {
       const directRes = await getDirectUrl(currentUrl.value, formatId)
       if (directRes.success && directRes.data?.direct_url) {
         const { direct_url, ext, title } = directRes.data
-        const link = document.createElement('a')
-        link.href = direct_url
-        link.download = `${title || 'video'}.${ext || 'mp4'}`
-        link.target = '_blank'
-        link.rel = 'noopener'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        showToast('直链下载已开始（优先使用浏览器直链）', 'success')
-        return
+        const filename = `${title || 'video'}.${ext || 'mp4'}`
+        const ok = await downloadFromDirectUrl(direct_url, filename)
+        if (ok) {
+          showToast('直链下载已开始', 'success')
+          return
+        }
       }
     } catch {
       // 直链不可用，回退服务端代理
     }
 
     const response = await downloadViaServer(currentUrl.value, formatId)
-    const contentDisposition = response.headers['content-disposition']
-    let filename = 'video.mp4'
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;\n]+)/i)
-      if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''))
-    }
-    const blob = new Blob([response.data])
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    window.URL.revokeObjectURL(url)
+    const filename = parseFilenameFromDisposition(response.headers['content-disposition'])
+    triggerBlobDownload(new Blob([response.data]), filename)
     showToast('下载已开始（服务端代理）', 'success')
   } catch (err) {
     downloadError.value = err.message || '下载失败，请稍后重试'
@@ -284,19 +325,8 @@ async function handleDownloadSubtitles() {
     if (source === 'whisper') {
       subtitleLoadingText.value = '语音转写完成，正在保存...'
     }
-    const contentDisposition = response.headers['content-disposition']
-    let filename = 'subtitle.srt'
-    if (contentDisposition) {
-      const match = contentDisposition.match(/filename\*?=(?:UTF-8'')?([^;\n]+)/i)
-      if (match) filename = decodeURIComponent(match[1].replace(/"/g, ''))
-    }
-    const blob = new Blob([response.data], { type: 'application/x-subrip;charset=utf-8' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    window.URL.revokeObjectURL(url)
+    const filename = parseFilenameFromDisposition(response.headers['content-disposition'], 'subtitle.srt')
+    triggerBlobDownload(new Blob([response.data], { type: 'application/x-subrip;charset=utf-8' }), filename)
     const msg = source === 'whisper' ? '字幕已生成（语音转写）并开始下载' : '字幕下载已开始'
     showToast(msg, 'success')
   } catch (err) {

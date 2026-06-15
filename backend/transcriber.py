@@ -44,6 +44,49 @@ class Transcriber:
         self.model_size = model_size
         self.max_duration = max_duration
 
+    def transcribe_file(self, file_path: Path, meta: Optional[dict] = None) -> tuple[list[dict], dict]:
+        """对本地音视频文件 Whisper 转写。"""
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise ValueError("本地文件不存在")
+
+        base_meta = {
+            "title": meta.get("title") if meta else file_path.stem,
+            "duration": meta.get("duration", 0) if meta else 0,
+            "platform": "本地文件",
+        }
+
+        duration = base_meta["duration"]
+        if duration > self.max_duration:
+            raise ValueError(
+                f"视频时长 {duration // 60} 分钟超过 ASR 上限 ({self.max_duration // 60} 分钟)"
+            )
+
+        try:
+            with _whisper_lock:
+                model = _get_whisper_model(self.model_size)
+                segments_iter, info = model.transcribe(
+                    str(file_path),
+                    beam_size=5,
+                    language=None,
+                    vad_filter=False,
+                )
+                segments = [
+                    {"start": seg.start, "end": seg.end, "text": seg.text.strip()}
+                    for seg in segments_iter
+                    if seg.text.strip()
+                ]
+            if not base_meta.get("duration") and info:
+                base_meta["duration"] = int(info.duration or 0)
+            if not segments:
+                raise ValueError("语音转写未识别到有效文本，请尝试其他视频")
+            return segments, base_meta
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.exception("Whisper 本地文件转写失败")
+            raise ValueError(f"语音转写失败: {e}") from e
+
     def transcribe_url(self, url: str) -> tuple[list[dict], dict]:
         """
         下载音频并转写。

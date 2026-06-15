@@ -19,14 +19,27 @@ export function renderMarkdown(md) {
 
   const lines = md.split('\n')
   const html = []
-  let inList = false
+  let inUl = false
+  let inOl = false
   let inBlockquote = false
 
-  const closeList = () => {
-    if (inList) {
+  const closeUl = () => {
+    if (inUl) {
       html.push('</ul>')
-      inList = false
+      inUl = false
     }
+  }
+
+  const closeOl = () => {
+    if (inOl) {
+      html.push('</ol>')
+      inOl = false
+    }
+  }
+
+  const closeLists = () => {
+    closeUl()
+    closeOl()
   }
 
   const closeBlockquote = () => {
@@ -40,14 +53,14 @@ export function renderMarkdown(md) {
     const trimmed = line.trim()
 
     if (!trimmed) {
-      closeList()
+      closeLists()
       closeBlockquote()
       continue
     }
 
     const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/)
     if (headingMatch) {
-      closeList()
+      closeLists()
       closeBlockquote()
       const level = headingMatch[1].length
       const tag = level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3'
@@ -56,7 +69,7 @@ export function renderMarkdown(md) {
     }
 
     if (trimmed.startsWith('> ')) {
-      closeList()
+      closeLists()
       if (!inBlockquote) {
         html.push('<blockquote>')
         inBlockquote = true
@@ -68,19 +81,30 @@ export function renderMarkdown(md) {
     closeBlockquote()
 
     if (/^[-*]\s+/.test(trimmed)) {
-      if (!inList) {
+      closeOl()
+      if (!inUl) {
         html.push('<ul>')
-        inList = true
+        inUl = true
       }
       html.push(`<li>${inlineFormat(trimmed.replace(/^[-*]\s+/, ''))}</li>`)
       continue
     }
 
-    closeList()
+    if (/^\d+\.\s+/.test(trimmed)) {
+      closeUl()
+      if (!inOl) {
+        html.push('<ol>')
+        inOl = true
+      }
+      html.push(`<li>${inlineFormat(trimmed.replace(/^\d+\.\s+/, ''))}</li>`)
+      continue
+    }
+
+    closeLists()
     html.push(`<p>${inlineFormat(trimmed)}</p>`)
   }
 
-  closeList()
+  closeLists()
   closeBlockquote()
   return html.join('')
 }
