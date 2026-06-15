@@ -33,7 +33,7 @@
             class="w-full h-12 rounded-lg border border-border text-sm font-semibold text-text-primary hover:bg-surface-muted transition-colors cursor-pointer"
             @click="$emit('need-login')"
           >
-            免费使用
+            {{ isLoggedIn ? '立即使用' : '免费使用' }}
           </button>
         </div>
 
@@ -62,12 +62,16 @@
               </li>
             </ul>
             <button
-              class="w-full h-12 rounded-lg bg-white text-primary font-semibold text-sm hover:bg-white/90 transition-colors shadow-md cursor-pointer"
+              class="w-full h-12 rounded-lg bg-white text-primary font-semibold text-sm hover:bg-white/90 transition-colors shadow-md cursor-pointer disabled:opacity-60"
+              :disabled="checkoutLoading"
               @click="$emit('open-vip')"
             >
-              开通 VIP
+              {{ checkoutLoading ? '跳转支付中...' : (isVip ? '续费 VIP' : '开通 VIP') }}
             </button>
-            <p class="text-center text-xs text-white/50 mt-3">第 6 阶段接入 Stripe 支付</p>
+            <p v-if="isVip && vipExpiresAt" class="text-center text-xs text-white/60 mt-3">
+              VIP 有效期至 {{ formatDate(vipExpiresAt) }}
+            </p>
+            <p v-else class="text-center text-xs text-white/50 mt-3">¥9.9 / 30 天 · Stripe 安全支付</p>
           </div>
         </div>
       </div>
@@ -76,7 +80,20 @@
 </template>
 
 <script setup>
+defineProps({
+  isLoggedIn: { type: Boolean, default: false },
+  isVip: { type: Boolean, default: false },
+  vipExpiresAt: { type: String, default: '' },
+  checkoutLoading: { type: Boolean, default: false },
+})
+
 defineEmits(['need-login', 'open-vip'])
+
+function formatDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+}
 
 const freePlan = [
   '1800+ 平台视频下载',

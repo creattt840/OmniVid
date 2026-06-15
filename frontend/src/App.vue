@@ -3,7 +3,15 @@
     <AppHeader
       :history-count="historyItems.length"
       :focus-mode="!!videoData"
-      @login="showComingSoon('登录注册')"
+      :is-logged-in="isLoggedIn"
+      :is-vip="isVip"
+      :user-email="user?.email || ''"
+      :vip-expires-at="user?.vip_expires_at || ''"
+      :ai-usage-today="user?.ai_usage_today ?? 0"
+      :ai-daily-limit="user?.ai_daily_limit ?? 3"
+      @login="openAuth('login')"
+      @logout="handleLogout"
+      @renew-vip="handleOpenVip"
       @history="historyOpen = true"
       @menu-open="menuOpen = true"
       @navigate="handleMenuNavigate"
@@ -50,8 +58,11 @@
                   :local-mode="sourceMode === 'local'"
                   :video-url="sourceMode === 'url' ? currentUrl : ''"
                   :thumbnail="videoData?.thumbnail || ''"
+                  :is-vip="isVip"
+                  :is-logged-in="isLoggedIn"
                   @completed="handleAnalysisCompleted"
                   @seek-video="handleSeekVideo"
+                  @upgrade-required="handleUpgradeRequired"
                 />
               </div>
             </div>
@@ -75,8 +86,12 @@
         <FeatureSection />
         <HowToSection />
         <PricingSection
-          @need-login="showComingSoon('登录注册')"
-          @open-vip="showComingSoon('VIP 付费')"
+          :is-logged-in="isLoggedIn"
+          :is-vip="isVip"
+          :vip-expires-at="user?.vip_expires_at || ''"
+          :checkout-loading="checkoutLoading"
+          @need-login="openAuth('login')"
+          @open-vip="handleOpenVip"
         />
       </template>
     </main>
@@ -108,6 +123,13 @@
       @success="handleUploadSuccess"
     />
 
+    <AuthModal
+      :open="authOpen"
+      :initial-mode="authMode"
+      @close="authOpen = false"
+      @success="handleAuthSuccess"
+    />
+
     <!-- Toast 提示 -->
     <Teleport to="body">
       <Transition name="toast">
@@ -128,6 +150,7 @@
 <script setup>
 import { ref, onMounted, computed, nextTick } from 'vue'
 import AppHeader from './components/AppHeader.vue'
+import AuthModal from './components/AuthModal.vue'
 import HeroSection from './components/HeroSection.vue'
 import VideoResult from './components/VideoResult.vue'
 import VideoSummary from './components/VideoSummary.vue'
@@ -142,6 +165,10 @@ import AppFooter from './components/AppFooter.vue'
 import { parseVideo, downloadViaServer, downloadSubtitles, getDirectUrl, downloadFromDirectUrl, triggerBlobDownload, parseFilenameFromDisposition } from './api/video.js'
 import { getUploadStreamUrl } from './api/upload.js'
 import { loadHistory, saveHistoryItem, removeHistoryItem, clearHistory } from './utils/historyStore.js'
+import { useAuth } from './composables/useAuth.js'
+import { createCheckout } from './api/billing.js'
+
+const { user, isLoggedIn, isVip, initAuth, refreshUser, logout } = useAuth()
 
 const loading = ref(false)
 const downloading = ref(false)
@@ -159,6 +186,9 @@ const historyOpen = ref(false)
 const historyItems = ref([])
 const menuOpen = ref(false)
 const uploadModalOpen = ref(false)
+const authOpen = ref(false)
+const authMode = ref('login')
+const checkoutLoading = ref(false)
 const videoResultRef = ref(null)
 
 const previewUrl = computed(() => {
@@ -173,9 +203,75 @@ const summaryKey = computed(() =>
   sourceMode.value === 'local' ? `local:${fileId.value}` : `url:${currentUrl.value}`,
 )
 
-onMounted(() => {
+onMounted(async () => {
   historyItems.value = loadHistory()
+  await initAuth()
+  await handleCheckoutReturn()
 })
+
+async function handleCheckoutReturn() {
+  const params = new URLSearchParams(window.location.search)
+  const checkout = params.get('checkout')
+  if (!checkout) return
+  if (checkout === 'success') {
+    await refreshUser()
+    showToast(isVip.value ? 'VIP 开通成功！' : '支付处理中，请稍候刷新...', 'success')
+  } else if (checkout === 'cancel') {
+    showToast('已取消支付')
+  }
+  window.history.replaceState({}, '', window.location.pathname)
+}
+
+function openAuth(mode = 'login') {
+  authMode.value = mode
+  authOpen.value = true
+}
+
+function handleAuthSuccess() {
+  showToast('登录成功', 'success')
+}
+
+function handleLogout() {
+  logout()
+  showToast('已退出登录')
+}
+
+function scrollToPricing() {
+  document.querySelector('#pricing')?.scrollIntoView({ behavior: 'smooth' })
+}
+
+async function handleOpenVip() {
+  if (!isLoggedIn.value) {
+    openAuth('login')
+    return
+  }
+  if (checkoutLoading.value) return
+  checkoutLoading.value = true
+  try {
+    const res = await createCheckout()
+    if (res.success && res.data?.checkout_url) {
+      window.location.href = res.data.checkout_url
+    } else {
+      showToast(res.error || '创建支付失败')
+    }
+  } catch (err) {
+    showToast(err.message || '创建支付失败')
+  } finally {
+    checkoutLoading.value = false
+  }
+}
+
+function handleUpgradeRequired(code) {
+  if (code === 'AUTH_REQUIRED' || code === 'AUTH_EXPIRED') {
+    openAuth('login')
+    showToast('请先登录后使用 AI 功能')
+    return
+  }
+  if (code === 'QUOTA_EXCEEDED' || code === 'VIP_REQUIRED') {
+    showToast('此功能需要 VIP 会员')
+    scrollToPricing()
+  }
+}
 
 function refreshHistory() {
   historyItems.value = loadHistory()
@@ -259,7 +355,7 @@ function showToast(message, type = 'info') {
 }
 
 function showComingSoon(feature) {
-  showToast(`${feature}功能将在第 4-6 阶段上线，敬请期待`)
+  showToast(`${feature}功能即将上线`)
 }
 
 async function handleParse(url) {

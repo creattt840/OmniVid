@@ -10,10 +10,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import httpx
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, model_validator
+from sqlalchemy.orm import Session
 
 from bilibili import BilibiliParser, is_bilibili_url
 from douyin import DouyinParser, is_douyin_url
@@ -23,6 +24,12 @@ from local_upload import LocalUploadHandler, upload_store
 from subtitles import SubtitleFetcher, sanitize_filename
 from transcriber import Transcriber
 from summarizer import VideoAnalyzer
+from auth_routes import router as auth_router
+from billing import router as billing_router
+from database import get_db
+from deps import get_current_user, require_vip
+from membership import check_ai_quota, consume_ai_quota
+from models import User
 
 downloader = VideoDownloader()
 douyin_parser = DouyinParser(download_dir=downloader.DOWNLOAD_DIR)
@@ -47,6 +54,9 @@ local_upload_handler = LocalUploadHandler(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from database import init_db
+
+    init_db()
     yield
     upload_store.cleanup_all()
     download_dir = downloader.DOWNLOAD_DIR
@@ -76,6 +86,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router)
+app.include_router(billing_router)
 
 
 class ParseRequest(BaseModel):
@@ -309,7 +322,21 @@ async def download_subtitles(req: SubtitleDownloadRequest):
 
 
 @app.post("/api/analyze")
-async def start_analyze(req: AnalyzeRequest):
+async def start_analyze(
+    req: AnalyzeRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    allowed, quota_msg = check_ai_quota(db, user)
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "success": False,
+                "error": quota_msg,
+                "code": "QUOTA_EXCEEDED",
+            },
+        )
     try:
         loop = asyncio.get_event_loop()
         if req.file_id:
@@ -323,6 +350,7 @@ async def start_analyze(req: AnalyzeRequest):
             session = await loop.run_in_executor(
                 None, video_analyzer.prepare_transcript, req.url.strip()
             )
+        consume_ai_quota(db, user)
         return {
             "success": True,
             "data": {
@@ -365,7 +393,7 @@ async def stream_analyze(session_id: str):
 
 
 @app.get("/api/analyze/{session_id}/rewrite")
-async def rewrite_analyze(session_id: str):
+async def rewrite_analyze(session_id: str, user: User = Depends(require_vip)):
     def event_generator():
         for event in video_analyzer.stream_rewrite(session_id):
             yield event
@@ -382,7 +410,7 @@ async def rewrite_analyze(session_id: str):
 
 
 @app.post("/api/subtitles/translate")
-async def translate_subtitles(req: TranslateRequest):
+async def translate_subtitles(req: TranslateRequest, user: User = Depends(require_vip)):
     fmt = req.format.lower()
     if fmt not in ("srt", "vtt", "txt"):
         raise HTTPException(

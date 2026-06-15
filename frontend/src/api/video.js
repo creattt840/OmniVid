@@ -1,6 +1,15 @@
 import axios from 'axios'
+import { authHeaders } from './authStorage.js'
 
 const api = axios.create({ baseURL: '/api', timeout: 120000 })
+
+api.interceptors.request.use((config) => {
+  const headers = authHeaders()
+  if (headers.Authorization) {
+    config.headers = { ...config.headers, ...headers }
+  }
+  return config
+})
 
 export async function parseVideo(url) {
   const { data } = await api.post('/parse', { url })
@@ -22,10 +31,17 @@ export async function downloadSubtitles(url, format = 'srt') {
 }
 
 export async function translateSubtitles(url, targetLang = 'en', format = 'srt') {
-  return api.post('/subtitles/translate', { url, target_lang: targetLang, format }, {
-    responseType: 'blob',
-    timeout: 600000,
-  })
+  try {
+    return await api.post('/subtitles/translate', { url, target_lang: targetLang, format }, {
+      responseType: 'blob',
+      timeout: 600000,
+    })
+  } catch (err) {
+    const detail = err.response?.data?.detail
+    const error = new Error(typeof detail === 'object' ? detail.error : (detail || err.message || '翻译失败'))
+    error.code = typeof detail === 'object' ? detail.code : null
+    throw error
+  }
 }
 
 export async function getDirectUrl(url, formatId) {

@@ -43,7 +43,7 @@
 
     <!-- 状态栏 -->
     <div
-      v-if="phase !== 'ready' || rewriteLoading"
+      v-if="(phase !== 'ready' && phase !== 'error') || rewriteLoading"
       class="flex-shrink-0 bg-primary-light/50 border-b border-border-light"
       :class="embedded ? 'px-1 py-2' : 'px-5 sm:px-6 py-3'"
     >
@@ -57,8 +57,16 @@
     </div>
 
     <!-- 错误 -->
-    <div v-if="error" class="flex-shrink-0 px-5 sm:px-6 py-4 bg-red-50 text-red-700 text-sm">
-      {{ error }}
+    <div v-if="error" class="flex-shrink-0 px-5 sm:px-6 py-4 bg-red-50 text-red-700 text-sm flex items-center justify-between gap-3">
+      <span>{{ error }}</span>
+      <button
+        v-if="authRetryPending && !isLoggedIn"
+        type="button"
+        class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-dark cursor-pointer"
+        @click="emit('upgrade-required', 'AUTH_REQUIRED')"
+      >
+        去登录
+      </button>
     </div>
 
     <!-- Tabs -->
@@ -371,9 +379,11 @@ const props = defineProps({
   embedded: Boolean,
   videoUrl: { type: String, default: '' },
   thumbnail: { type: String, default: '' },
+  isVip: { type: Boolean, default: false },
+  isLoggedIn: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'completed', 'seek-video'])
+const emit = defineEmits(['close', 'completed', 'seek-video', 'upgrade-required'])
 
 const tabs = [
   { id: 'summary', label: '摘要' },
@@ -406,6 +416,7 @@ const articleContent = ref('')
 const articleStreaming = ref(false)
 const rewriteLoading = ref(false)
 const historySaved = ref(false)
+const authRetryPending = ref(false)
 
 const subtitleFormats = [
   { id: 'srt', label: 'SRT' },
@@ -471,6 +482,11 @@ function exportMarkdown() {
 }
 
 function exportPdf() {
+  if (!props.isVip) {
+    emit('upgrade-required', 'VIP_REQUIRED')
+    error.value = 'PDF 导出需要 VIP 会员'
+    return
+  }
   downloadSummaryPdf({
     title: meta.value.title,
     platform: meta.value.platform,
@@ -500,8 +516,10 @@ async function handleTranslateDownload() {
     a.click()
     URL.revokeObjectURL(blobUrl)
   } catch (err) {
-    const detail = err.response?.data?.detail
-    error.value = typeof detail === 'object' ? detail.error : (detail || err.message || '字幕翻译失败')
+    const msg = err.message || '字幕翻译失败'
+    error.value = msg
+    if (err.code) emit('upgrade-required', err.code)
+    else if (err.response?.status === 403) emit('upgrade-required', 'VIP_REQUIRED')
   } finally {
     translating.value = false
   }
@@ -526,6 +544,7 @@ async function startRewrite() {
     })
   } catch (err) {
     error.value = err.message || '文章改写失败'
+    if (err.code) emit('upgrade-required', err.code)
   } finally {
     rewriteLoading.value = false
     articleStreaming.value = false
@@ -567,6 +586,14 @@ watch(activeTab, async (tab) => {
   }
 })
 
+watch(() => props.isLoggedIn, (loggedIn) => {
+  if (loggedIn && authRetryPending.value && phase.value === 'error') {
+    authRetryPending.value = false
+    historySaved.value = false
+    runAnalysis()
+  }
+})
+
 async function runAnalysis() {
   if (!props.url && !props.fileId) {
     phase.value = 'error'
@@ -575,6 +602,7 @@ async function runAnalysis() {
   }
   phase.value = 'preparing'
   error.value = ''
+  authRetryPending.value = false
   try {
     phase.value = 'transcribing'
     const res = await startAnalyze({
@@ -600,6 +628,10 @@ async function runAnalysis() {
   } catch (err) {
     phase.value = 'error'
     error.value = err.message || '分析失败，请稍后重试'
+    if (err.code === 'AUTH_REQUIRED' || err.code === 'AUTH_EXPIRED') {
+      authRetryPending.value = true
+    }
+    if (err.code) emit('upgrade-required', err.code)
   }
 }
 

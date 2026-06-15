@@ -1,12 +1,15 @@
 /**
  * SSE 流式请求工具
  */
+import { authHeaders } from './authStorage.js'
+
 async function consumeSSE(url, options, onEvent) {
   const resp = await fetch(url, {
     ...options,
     headers: {
       Accept: 'text/event-stream',
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...options?.headers,
     },
   })
@@ -15,7 +18,10 @@ async function consumeSSE(url, options, onEvent) {
     const err = await resp.json().catch(() => ({}))
     const detail = err.detail
     const msg = typeof detail === 'object' ? detail.error : (detail || resp.statusText)
-    throw new Error(msg || '请求失败')
+    const code = typeof detail === 'object' ? detail.code : null
+    const error = new Error(msg || '请求失败')
+    error.code = code
+    throw error
   }
 
   const reader = resp.body.getReader()
@@ -49,13 +55,18 @@ export async function startAnalyze({ url, fileId } = {}) {
   const body = url ? { url } : { file_id: fileId }
   const resp = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(),
+    },
     body: JSON.stringify(body),
   })
   const data = await resp.json()
   if (!resp.ok) {
     const detail = data.detail
-    throw new Error(typeof detail === 'object' ? detail.error : (detail || '分析失败'))
+    const error = new Error(typeof detail === 'object' ? detail.error : (detail || '分析失败'))
+    error.code = typeof detail === 'object' ? detail.code : null
+    throw error
   }
   return data
 }
