@@ -12,10 +12,10 @@
             <h2 class="font-bold text-text-primary">分析历史</h2>
             <div class="flex items-center gap-2">
               <button
-                v-if="items.length"
+                v-if="isLoggedIn && items.length"
                 type="button"
                 class="text-xs text-text-muted hover:text-red-500 transition-colors cursor-pointer"
-                @click="handleClear"
+                @click="requestClear"
               >
                 清空
               </button>
@@ -33,15 +33,18 @@
           </div>
 
           <div class="flex-1 overflow-y-auto p-4 space-y-3">
-            <p v-if="!items.length" class="text-sm text-text-muted text-center py-12">
-              暂无历史记录<br><span class="text-xs">分析完成后自动保存</span>
+            <p v-if="!isLoggedIn" class="text-sm text-text-muted text-center py-12">
+              登录后查看分析历史<br><span class="text-xs">分析完成后自动保存至云端</span>
+            </p>
+            <p v-else-if="!items.length" class="text-sm text-text-muted text-center py-12">
+              暂无历史记录<br><span class="text-xs">分析完成后自动保存（最多 10 条）</span>
             </p>
             <button
               v-for="item in items"
               :key="item.id"
               type="button"
               class="w-full flex gap-3 p-3 rounded-lg border border-border-light hover:border-primary/30 hover:bg-primary-light/30 text-left transition-all cursor-pointer group"
-              @click="$emit('select', item.url)"
+              @click="$emit('select', item)"
             >
               <div class="w-16 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
                 <img
@@ -63,7 +66,7 @@
                 type="button"
                 class="flex-shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-text-muted hover:text-red-500 transition-all cursor-pointer"
                 aria-label="删除"
-                @click.stop="$emit('remove', item.id)"
+                @click.stop="requestRemove(item)"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -75,16 +78,36 @@
         </aside>
       </div>
     </Transition>
+
+    <ConfirmDialog
+      :open="confirmOpen"
+      :title="confirmTitle"
+      :message="confirmMessage"
+      :confirm-text="confirmAction === 'clear' ? '清空' : '删除'"
+      danger
+      @confirm="handleConfirm"
+      @cancel="confirmOpen = false"
+    />
   </Teleport>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import ConfirmDialog from './ConfirmDialog.vue'
+
 defineProps({
   open: Boolean,
   items: { type: Array, default: () => [] },
+  isLoggedIn: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'select', 'remove', 'clear'])
+
+const confirmOpen = ref(false)
+const confirmAction = ref('remove')
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const pendingRemoveId = ref(null)
 
 function thumbnailProxy(url) {
   return '/api/proxy/thumbnail?url=' + encodeURIComponent(url)
@@ -96,9 +119,29 @@ function formatDate(ts) {
   })
 }
 
-function handleClear() {
-  if (confirm('确定清空所有分析历史？')) {
+function requestRemove(item) {
+  confirmAction.value = 'remove'
+  confirmTitle.value = '删除分析历史'
+  confirmMessage.value = `确定删除「${item.title}」吗？此操作不可恢复。`
+  pendingRemoveId.value = item.id
+  confirmOpen.value = true
+}
+
+function requestClear() {
+  confirmAction.value = 'clear'
+  confirmTitle.value = '清空分析历史'
+  confirmMessage.value = '确定清空所有分析历史？此操作不可恢复。'
+  pendingRemoveId.value = null
+  confirmOpen.value = true
+}
+
+function handleConfirm() {
+  confirmOpen.value = false
+  if (confirmAction.value === 'clear') {
     emit('clear')
+  } else if (pendingRemoveId.value) {
+    emit('remove', pendingRemoveId.value)
+    pendingRemoveId.value = null
   }
 }
 </script>

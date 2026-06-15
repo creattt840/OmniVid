@@ -281,6 +281,104 @@ class VideoAnalyzer:
             logger.exception("问答失败")
             yield self._sse("error", {"message": f"AI 问答失败: {str(e)}"})
 
+    def stream_chat_from_context(
+        self,
+        title: str,
+        segments: list,
+        summary: dict | None,
+        chat_history: list,
+        message: str,
+    ) -> Generator[str, None, None]:
+        """基于持久化上下文进行问答，chat_history 会被原地更新。"""
+        if not self.client:
+            yield self._sse("error", {"message": "未配置 DEEPSEEK_API_KEY"})
+            return
+
+        if not segments:
+            yield self._sse("error", {"message": "历史记录缺少转录文本，无法继续问答"})
+            return
+
+        text = SubtitleFetcher.segments_to_text(segments)
+        if len(text) > MAX_TRANSCRIPT_CHARS:
+            text = text[:MAX_TRANSCRIPT_CHARS] + "\n...(内容已截断)"
+
+        summary_ctx = json.dumps(summary or {}, ensure_ascii=False, indent=2)
+        system_content = (
+            f"{CHAT_SYSTEM_PROMPT}\n\n"
+            f"视频标题：{title}\n\n"
+            f"视频摘要：\n{summary_ctx}\n\n"
+            f"转录文本：\n{text}"
+        )
+
+        messages = [{"role": "system", "content": system_content}]
+        for turn in chat_history:
+            messages.append(turn)
+        messages.append({"role": "user", "content": message})
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                messages=messages,
+                stream=True,
+                temperature=0.5,
+            )
+
+            full_reply = ""
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_reply += delta
+                    yield self._sse("chat_chunk", {"content": delta})
+
+            chat_history.append({"role": "user", "content": message})
+            chat_history.append({"role": "assistant", "content": full_reply})
+            yield self._sse("chat_done", {"content": full_reply})
+
+        except Exception as e:
+            logger.exception("历史问答失败")
+            yield self._sse("error", {"message": f"AI 问答失败: {str(e)}"})
+
+    def stream_rewrite_from_context(self, title: str, segments: list) -> Generator[str, None, None]:
+        """基于持久化转录文本生成改写文章。"""
+        if not self.client:
+            yield self._sse("error", {"message": "未配置 DEEPSEEK_API_KEY"})
+            return
+
+        if not segments:
+            yield self._sse("error", {"message": "历史记录缺少转录文本，无法生成改写文章"})
+            return
+
+        text = SubtitleFetcher.segments_to_text(segments)
+        if len(text) > MAX_TRANSCRIPT_CHARS:
+            text = text[:MAX_TRANSCRIPT_CHARS] + "\n...(内容已截断)"
+
+        user_prompt = f"视频标题：{title}\n\n转录文本：\n{text}"
+
+        try:
+            stream = self.client.chat.completions.create(
+                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                messages=[
+                    {"role": "system", "content": REWRITE_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ],
+                stream=True,
+                temperature=0.4,
+                max_tokens=4096,
+            )
+
+            full_content = ""
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_content += delta
+                    yield self._sse("rewrite_chunk", {"content": delta})
+
+            yield self._sse("rewrite_done", {"content": full_content})
+
+        except Exception as e:
+            logger.exception("历史文章改写失败")
+            yield self._sse("error", {"message": f"AI 改写失败: {str(e)}"})
+
     def stream_rewrite(self, session_id: str) -> Generator[str, None, None]:
         session = session_store.get(session_id)
         if not session:

@@ -80,7 +80,7 @@
           </form>
 
           <p class="px-6 pb-6 text-xs text-text-muted text-center">
-            登录后可使用 AI 视频总结；VIP 会员解锁无限次数与高级功能
+            登录后可使用 AI 视频分析，每个账号每日免费 10 次
           </p>
         </div>
       </div>

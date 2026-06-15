@@ -4,14 +4,11 @@
       :history-count="historyItems.length"
       :focus-mode="!!videoData"
       :is-logged-in="isLoggedIn"
-      :is-vip="isVip"
       :user-email="user?.email || ''"
-      :vip-expires-at="user?.vip_expires_at || ''"
       :ai-usage-today="user?.ai_usage_today ?? 0"
-      :ai-daily-limit="user?.ai_daily_limit ?? 3"
+      :ai-daily-limit="user?.ai_daily_limit ?? 10"
       @login="openAuth('login')"
       @logout="handleLogout"
-      @renew-vip="handleOpenVip"
       @history="historyOpen = true"
       @menu-open="menuOpen = true"
       @navigate="handleMenuNavigate"
@@ -58,9 +55,11 @@
                   :local-mode="sourceMode === 'local'"
                   :video-url="sourceMode === 'url' ? currentUrl : ''"
                   :thumbnail="videoData?.thumbnail || ''"
-                  :is-vip="isVip"
                   :is-logged-in="isLoggedIn"
+                  :initial-history="restoredHistory"
+                  :history-id="activeHistoryId"
                   @completed="handleAnalysisCompleted"
+                  @sync-history="handleHistorySync"
                   @seek-video="handleSeekVideo"
                   @upgrade-required="handleUpgradeRequired"
                 />
@@ -87,11 +86,7 @@
         <HowToSection />
         <PricingSection
           :is-logged-in="isLoggedIn"
-          :is-vip="isVip"
-          :vip-expires-at="user?.vip_expires_at || ''"
-          :checkout-loading="checkoutLoading"
           @need-login="openAuth('login')"
-          @open-vip="handleOpenVip"
         />
       </template>
     </main>
@@ -101,6 +96,7 @@
     <HistoryPanel
       :open="historyOpen"
       :items="historyItems"
+      :is-logged-in="isLoggedIn"
       @close="historyOpen = false"
       @select="handleHistorySelect"
       @remove="handleHistoryRemove"
@@ -148,7 +144,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import AuthModal from './components/AuthModal.vue'
 import HeroSection from './components/HeroSection.vue'
@@ -164,11 +160,10 @@ import PricingSection from './components/PricingSection.vue'
 import AppFooter from './components/AppFooter.vue'
 import { parseVideo, downloadViaServer, downloadSubtitles, getDirectUrl, downloadFromDirectUrl, triggerBlobDownload, parseFilenameFromDisposition } from './api/video.js'
 import { getUploadStreamUrl } from './api/upload.js'
-import { loadHistory, saveHistoryItem, removeHistoryItem, clearHistory } from './utils/historyStore.js'
+import { fetchHistory, saveHistory, deleteHistory, clearHistory } from './api/history.js'
 import { useAuth } from './composables/useAuth.js'
-import { createCheckout } from './api/billing.js'
 
-const { user, isLoggedIn, isVip, initAuth, refreshUser, logout } = useAuth()
+const { user, isLoggedIn, initAuth, logout } = useAuth()
 
 const loading = ref(false)
 const downloading = ref(false)
@@ -188,8 +183,9 @@ const menuOpen = ref(false)
 const uploadModalOpen = ref(false)
 const authOpen = ref(false)
 const authMode = ref('login')
-const checkoutLoading = ref(false)
 const videoResultRef = ref(null)
+const restoredHistory = ref(null)
+const activeHistoryId = ref(null)
 
 const previewUrl = computed(() => {
   if (sourceMode.value === 'local' && fileId.value) {
@@ -199,28 +195,20 @@ const previewUrl = computed(() => {
 })
 
 /** 切换视频来源时强制重建 VideoSummary，避免复用旧分析状态 */
-const summaryKey = computed(() =>
-  sourceMode.value === 'local' ? `local:${fileId.value}` : `url:${currentUrl.value}`,
-)
-
-onMounted(async () => {
-  historyItems.value = loadHistory()
-  await initAuth()
-  await handleCheckoutReturn()
+const summaryKey = computed(() => {
+  if (restoredHistory.value) return `history:${restoredHistory.value.id}`
+  return sourceMode.value === 'local' ? `local:${fileId.value}` : `url:${currentUrl.value}`
 })
 
-async function handleCheckoutReturn() {
-  const params = new URLSearchParams(window.location.search)
-  const checkout = params.get('checkout')
-  if (!checkout) return
-  if (checkout === 'success') {
-    await refreshUser()
-    showToast(isVip.value ? 'VIP 开通成功！' : '支付处理中，请稍候刷新...', 'success')
-  } else if (checkout === 'cancel') {
-    showToast('已取消支付')
-  }
-  window.history.replaceState({}, '', window.location.pathname)
-}
+onMounted(async () => {
+  await initAuth()
+  await refreshHistory()
+})
+
+watch(isLoggedIn, (loggedIn) => {
+  if (loggedIn) refreshHistory()
+  else historyItems.value = []
+})
 
 function openAuth(mode = 'login') {
   authMode.value = mode
@@ -229,36 +217,12 @@ function openAuth(mode = 'login') {
 
 function handleAuthSuccess() {
   showToast('登录成功', 'success')
+  refreshHistory()
 }
 
 function handleLogout() {
   logout()
   showToast('已退出登录')
-}
-
-function scrollToPricing() {
-  document.querySelector('#pricing')?.scrollIntoView({ behavior: 'smooth' })
-}
-
-async function handleOpenVip() {
-  if (!isLoggedIn.value) {
-    openAuth('login')
-    return
-  }
-  if (checkoutLoading.value) return
-  checkoutLoading.value = true
-  try {
-    const res = await createCheckout()
-    if (res.success && res.data?.checkout_url) {
-      window.location.href = res.data.checkout_url
-    } else {
-      showToast(res.error || '创建支付失败')
-    }
-  } catch (err) {
-    showToast(err.message || '创建支付失败')
-  } finally {
-    checkoutLoading.value = false
-  }
 }
 
 function handleUpgradeRequired(code) {
@@ -267,39 +231,101 @@ function handleUpgradeRequired(code) {
     showToast('请先登录后使用 AI 功能')
     return
   }
-  if (code === 'QUOTA_EXCEEDED' || code === 'VIP_REQUIRED') {
-    showToast('此功能需要 VIP 会员')
-    scrollToPricing()
+  if (code === 'QUOTA_EXCEEDED') {
+    showToast('今日 AI 分析次数已用完，请明天再试')
   }
 }
 
-function refreshHistory() {
-  historyItems.value = loadHistory()
+async function refreshHistory() {
+  if (!isLoggedIn.value) {
+    historyItems.value = []
+    return
+  }
+  try {
+    const res = await fetchHistory()
+    if (res.success) historyItems.value = res.data
+  } catch {
+    historyItems.value = []
+  }
 }
 
-function handleAnalysisCompleted(item) {
-  saveHistoryItem(item)
-  refreshHistory()
+async function handleAnalysisCompleted(item) {
+  if (!isLoggedIn.value) return
+  try {
+    const res = await saveHistory(item)
+    activeHistoryId.value = res.data?.id ?? null
+    await refreshHistory()
+  } catch (err) {
+    showToast(err.message || '保存分析历史失败')
+  }
 }
 
-function handleHistorySelect(url) {
+async function handleHistorySync(item) {
+  if (!isLoggedIn.value) return
+  try {
+    await saveHistory(item)
+  } catch {
+    // 静默失败，不影响主流程
+  }
+}
+
+async function handleHistorySelect(item) {
   historyOpen.value = false
-  if (url.startsWith('local://')) {
+  if (item.source === 'local' || item.url?.startsWith('local://')) {
     showToast('本地文件会话已过期，请重新上传', 'info')
     uploadModalOpen.value = true
     return
   }
-  handleParse(url)
+
+  loading.value = true
+  videoData.value = null
+  parseError.value = ''
+  downloadError.value = ''
+  showSummary.value = false
+  currentUrl.value = item.url
+  fileId.value = ''
+  sourceMode.value = 'url'
+  restoredHistory.value = item
+  activeHistoryId.value = item.id
+
+  try {
+    const res = await parseVideo(item.url)
+    if (res.success) {
+      videoData.value = res.data
+      showSummary.value = true
+    } else {
+      parseError.value = res.error || '未知错误'
+      restoredHistory.value = null
+      activeHistoryId.value = null
+    }
+  } catch (err) {
+    const detail = err.response?.data?.detail
+    parseError.value = typeof detail === 'object' ? detail.error : (detail || err.message || '请检查链接是否正确')
+    restoredHistory.value = null
+    activeHistoryId.value = null
+  } finally {
+    loading.value = false
+  }
 }
 
-function handleHistoryRemove(id) {
-  removeHistoryItem(id)
-  refreshHistory()
+async function handleHistoryRemove(id) {
+  try {
+    await deleteHistory(id)
+    await refreshHistory()
+    showToast('已删除', 'success')
+  } catch (err) {
+    showToast(err.message || '删除失败')
+  }
 }
 
-function handleHistoryClear() {
-  clearHistory()
-  refreshHistory()
+async function handleHistoryClear() {
+  try {
+    await clearHistory()
+    await refreshHistory()
+    showToast('已清空分析历史', 'success')
+  } catch (err) {
+    showToast(err.message || '清空失败')
+  }
 }
 
 function resetWorkspace() {
@@ -308,6 +334,8 @@ function resetWorkspace() {
   currentUrl.value = ''
   fileId.value = ''
   sourceMode.value = 'url'
+  restoredHistory.value = null
+  activeHistoryId.value = null
   parseError.value = ''
   downloadError.value = ''
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -330,6 +358,8 @@ function handleMenuUploadLocal() {
 
 async function handleUploadSuccess(data) {
   resetWorkspace()
+  restoredHistory.value = null
+  activeHistoryId.value = null
   // 等待卸载旧 VideoSummary，避免同 tick 批处理导致组件复用、残留上次分析
   await nextTick()
   sourceMode.value = 'local'
@@ -367,6 +397,8 @@ async function handleParse(url) {
   currentUrl.value = url
   fileId.value = ''
   sourceMode.value = 'url'
+  restoredHistory.value = null
+  activeHistoryId.value = null
 
   try {
     const res = await parseVideo(url)

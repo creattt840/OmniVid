@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from models import UsageDaily, User
 
-FREE_DAILY_AI_LIMIT = int(os.getenv("FREE_DAILY_AI_LIMIT", "3"))
+FREE_DAILY_AI_LIMIT = int(os.getenv("FREE_DAILY_AI_LIMIT", "10"))
 VIP_DURATION_DAYS = int(os.getenv("VIP_DURATION_DAYS", "30"))
 AI_ANALYZE_ACTION = "ai_analyze"
 
@@ -42,17 +42,13 @@ def get_today_ai_usage(db: Session, user_id: int) -> int:
 
 def check_ai_quota(db: Session, user: User) -> tuple[bool, str | None]:
     """返回 (allowed, error_message)。"""
-    if user_is_vip(user):
-        return True, None
     used = get_today_ai_usage(db, user.id)
     if used >= FREE_DAILY_AI_LIMIT:
-        return False, f"免费版每日 AI 总结限 {FREE_DAILY_AI_LIMIT} 次，今日已用完。开通 VIP 可无限使用。"
+        return False, f"每日 AI 分析限 {FREE_DAILY_AI_LIMIT} 次，今日已用完，请明天再试。"
     return True, None
 
 
 def consume_ai_quota(db: Session, user: User) -> None:
-    if user_is_vip(user):
-        return
     today = date.today()
     record = (
         db.query(UsageDaily)
@@ -97,5 +93,6 @@ def serialize_user(db: Session, user: User) -> dict:
         "is_vip": user_is_vip(user),
         "vip_expires_at": vip_expires.isoformat() if vip_expires else None,
         "ai_usage_today": get_today_ai_usage(db, user.id),
-        "ai_daily_limit": FREE_DAILY_AI_LIMIT if not user_is_vip(user) else None,
+        "ai_daily_limit": FREE_DAILY_AI_LIMIT,
+        "membership_enabled": False,
     }

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("JWT_SECRET", "test-secret-key")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_omnivid.db")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_test")
+os.environ["FREE_DAILY_AI_LIMIT"] = "10"
 
 # 清理旧测试库
 test_db = os.path.join(os.path.dirname(__file__), "test_omnivid.db")
@@ -39,22 +40,34 @@ def test_register_login_me():
     data = me.json()["data"]
     assert data["email"] == "user1@example.com"
     assert data["is_vip"] is False
-    assert data["ai_daily_limit"] == 3
+    assert data["ai_daily_limit"] == 10
+    assert data["membership_enabled"] is False
 
 
 def test_ai_quota_enforcement():
     headers = _register_and_login("quota@example.com")
-    for i in range(3):
-        # analyze will fail at prepare step without real video, but quota is checked first
-        # We test quota logic directly via membership module
-        pass
     db = SessionLocal()
     user = db.query(User).filter(User.email == "quota@example.com").first()
-    for _ in range(3):
+    for _ in range(10):
         consume_ai_quota(db, user)
     allowed, msg = check_ai_quota(db, user)
     assert allowed is False
-    assert "3" in msg
+    assert "10" in msg
+    db.close()
+
+
+def test_vip_still_has_daily_quota():
+    """VIP 状态不再绕过每日配额。"""
+    db = SessionLocal()
+    user = User(email="vip_quota@example.com", password_hash="x")
+    user.vip_expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    for _ in range(10):
+        consume_ai_quota(db, user)
+    allowed, _ = check_ai_quota(db, user)
+    assert allowed is False
     db.close()
 
 
@@ -121,3 +134,11 @@ def test_webhook_idempotency(monkeypatch):
 def test_checkout_requires_auth():
     res = client.post("/api/billing/checkout")
     assert res.status_code == 401
+
+
+def test_checkout_disabled_when_logged_in():
+    headers = _register_and_login("checkout_disabled@example.com")
+    res = client.post("/api/billing/checkout", headers=headers)
+    assert res.status_code == 503
+    detail = res.json()["detail"]
+    assert detail["code"] == "MEMBERSHIP_DISABLED"

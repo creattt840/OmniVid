@@ -280,7 +280,9 @@
             </div>
           </div>
         </div>
-        <p v-else class="text-sm text-text-muted text-center py-8">转录文本加载中...</p>
+        <p v-else class="text-sm text-text-muted text-center py-8">
+          {{ phase === 'summarizing' ? '转录文本加载中...' : '暂无转录文本' }}
+        </p>
       </div>
 
       <!-- 思维导图 -->
@@ -304,11 +306,12 @@
           <button
             type="button"
             class="px-5 py-2.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors cursor-pointer disabled:opacity-50"
-            :disabled="rewriteLoading"
+            :disabled="rewriteLoading || !canRewrite"
             @click="startRewrite"
           >
             {{ rewriteLoading ? '生成中...' : '生成 AI 改写文章' }}
           </button>
+          <p v-if="!canRewrite" class="text-xs text-text-muted mt-3">缺少转录文本，无法生成改写文章</p>
         </div>
         <div v-else class="article-content">
           <div v-html="renderedArticle" />
@@ -346,12 +349,12 @@
             v-model="chatInput"
             type="text"
             placeholder="输入你的问题..."
-            :disabled="phase !== 'ready' && phase !== 'summarizing' || chatLoading"
+            :disabled="!canChat || (phase !== 'ready' && phase !== 'summarizing') || chatLoading"
             class="flex-1 px-4 py-2.5 rounded-full border border-border-light text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-50"
           />
           <button
             type="submit"
-            :disabled="!chatInput.trim() || chatLoading || !sessionId"
+            :disabled="!chatInput.trim() || chatLoading || !canChat"
             class="px-5 py-2.5 rounded-full bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 cursor-pointer"
           >
             发送
@@ -365,6 +368,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { startAnalyze, streamAnalyze, chatAnalyze, rewriteAnalyze } from '../api/analyze.js'
+import { chatHistoryAnalyze, rewriteHistoryAnalyze } from '../api/history.js'
 import { translateSubtitles } from '../api/video.js'
 import MindMapView from './MindMapView.vue'
 import { downloadSegments } from '../utils/subtitleExport.js'
@@ -379,11 +383,12 @@ const props = defineProps({
   embedded: Boolean,
   videoUrl: { type: String, default: '' },
   thumbnail: { type: String, default: '' },
-  isVip: { type: Boolean, default: false },
   isLoggedIn: { type: Boolean, default: false },
+  initialHistory: { type: Object, default: null },
+  historyId: { type: Number, default: null },
 })
 
-const emit = defineEmits(['close', 'completed', 'seek-video', 'upgrade-required'])
+const emit = defineEmits(['close', 'completed', 'sync-history', 'seek-video', 'upgrade-required'])
 
 const tabs = [
   { id: 'summary', label: '摘要' },
@@ -417,6 +422,11 @@ const articleStreaming = ref(false)
 const rewriteLoading = ref(false)
 const historySaved = ref(false)
 const authRetryPending = ref(false)
+const restoredMode = ref(false)
+const historyRecordId = ref(null)
+
+const canChat = computed(() => !!(sessionId.value || historyRecordId.value))
+const canRewrite = computed(() => !!(sessionId.value || (historyRecordId.value && segments.value.length)))
 
 const subtitleFormats = [
   { id: 'srt', label: 'SRT' },
@@ -482,11 +492,6 @@ function exportMarkdown() {
 }
 
 function exportPdf() {
-  if (!props.isVip) {
-    emit('upgrade-required', 'VIP_REQUIRED')
-    error.value = 'PDF 导出需要 VIP 会员'
-    return
-  }
   downloadSummaryPdf({
     title: meta.value.title,
     platform: meta.value.platform,
@@ -519,51 +524,73 @@ async function handleTranslateDownload() {
     const msg = err.message || '字幕翻译失败'
     error.value = msg
     if (err.code) emit('upgrade-required', err.code)
-    else if (err.response?.status === 403) emit('upgrade-required', 'VIP_REQUIRED')
   } finally {
     translating.value = false
   }
 }
 
 async function startRewrite() {
-  if (!sessionId.value || rewriteLoading.value) return
+  if (rewriteLoading.value || !canRewrite.value) return
   rewriteLoading.value = true
   articleContent.value = ''
   articleStreaming.value = true
+
+  const onEvent = (event) => {
+    if (event.type === 'rewrite_chunk') {
+      articleContent.value += event.content || ''
+    } else if (event.type === 'rewrite_done') {
+      articleContent.value = event.content || articleContent.value
+      articleStreaming.value = false
+    } else if (event.type === 'error') {
+      error.value = event.message
+      articleStreaming.value = false
+    }
+  }
+
   try {
-    await rewriteAnalyze(sessionId.value, (event) => {
-      if (event.type === 'rewrite_chunk') {
-        articleContent.value += event.content || ''
-      } else if (event.type === 'rewrite_done') {
-        articleContent.value = event.content || articleContent.value
-        articleStreaming.value = false
-      } else if (event.type === 'error') {
-        error.value = event.message
-        articleStreaming.value = false
-      }
-    })
+    if (sessionId.value) {
+      await rewriteAnalyze(sessionId.value, onEvent)
+    } else if (historyRecordId.value) {
+      await rewriteHistoryAnalyze(historyRecordId.value, onEvent)
+    }
   } catch (err) {
     error.value = err.message || '文章改写失败'
     if (err.code) emit('upgrade-required', err.code)
   } finally {
     rewriteLoading.value = false
     articleStreaming.value = false
+    if (articleContent.value) syncToHistory()
   }
 }
 
-function saveToHistory() {
-  if (historySaved.value || !summary.value.summary) return
-  historySaved.value = true
-  emit('completed', {
+function buildHistoryPayload(partial = false) {
+  return {
     url: props.url || `local://${props.fileId}`,
     source: props.localMode ? 'local' : 'url',
-    fileId: props.fileId || undefined,
     title: meta.value.title,
     platform: meta.value.platform,
     thumbnail: props.thumbnail,
     summary: { ...summary.value },
     mindmap: mindmap.value,
-  })
+    segments: segments.value,
+    transcriptSource: meta.value.transcript_source || '',
+    article: articleContent.value,
+    chatHistory: chatMessages.value
+      .filter(m => !m.streaming)
+      .map(m => ({ role: m.role, content: m.content })),
+    partial,
+  }
+}
+
+function syncToHistory() {
+  if (!props.isLoggedIn || !summary.value.summary) return
+  emit('sync-history', buildHistoryPayload(true))
+}
+
+function saveToHistory() {
+  if (historySaved.value || restoredMode.value || !summary.value.summary) return
+  historySaved.value = true
+  emit('completed', buildHistoryPayload(false))
 }
 
 function formatTime(seconds) {
@@ -593,6 +620,26 @@ watch(() => props.isLoggedIn, (loggedIn) => {
     runAnalysis()
   }
 })
+
+function applyRestoredHistory(data) {
+  restoredMode.value = true
+  historyRecordId.value = data.id
+  phase.value = 'ready'
+  meta.value = {
+    title: data.title,
+    platform: data.platform,
+    transcript_source: data.transcriptSource || null,
+  }
+  summary.value = data.summary || {}
+  mindmap.value = data.mindmap || ''
+  segments.value = data.segments || []
+  articleContent.value = data.article || ''
+  chatMessages.value = (data.chatHistory || []).map(m => ({
+    role: m.role,
+    content: m.content,
+    streaming: false,
+  }))
+}
 
 async function runAnalysis() {
   if (!props.url && !props.fileId) {
@@ -658,7 +705,7 @@ function handleStreamEvent(event) {
 
 async function sendChat() {
   const msg = chatInput.value.trim()
-  if (!msg || !sessionId.value || chatLoading.value) return
+  if (!msg || !canChat.value || chatLoading.value) return
 
   chatInput.value = ''
   chatMessages.value.push({ role: 'user', content: msg })
@@ -669,20 +716,28 @@ async function sendChat() {
   await nextTick()
   if (chatContainer.value) chatContainer.value.scrollTop = chatContainer.value.scrollHeight
 
-  try {
-    await chatAnalyze(sessionId.value, msg, (event) => {
-      if (event.type === 'chat_chunk') {
-        chatMessages.value[assistantIdx].content += event.content || ''
-      } else if (event.type === 'chat_done') {
-        chatMessages.value[assistantIdx].streaming = false
-      } else if (event.type === 'error') {
-        chatMessages.value[assistantIdx].content = event.message
-        chatMessages.value[assistantIdx].streaming = false
-      }
-      nextTick(() => {
-        if (chatContainer.value) chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-      })
+  const onEvent = (event) => {
+    if (event.type === 'chat_chunk') {
+      chatMessages.value[assistantIdx].content += event.content || ''
+    } else if (event.type === 'chat_done') {
+      chatMessages.value[assistantIdx].content = event.content || chatMessages.value[assistantIdx].content
+      chatMessages.value[assistantIdx].streaming = false
+    } else if (event.type === 'error') {
+      chatMessages.value[assistantIdx].content = event.message
+      chatMessages.value[assistantIdx].streaming = false
+    }
+    nextTick(() => {
+      if (chatContainer.value) chatContainer.value.scrollTop = chatContainer.value.scrollHeight
     })
+  }
+
+  try {
+    if (sessionId.value) {
+      await chatAnalyze(sessionId.value, msg, onEvent)
+      syncToHistory()
+    } else if (historyRecordId.value) {
+      await chatHistoryAnalyze(historyRecordId.value, msg, onEvent)
+    }
   } catch (err) {
     chatMessages.value[assistantIdx].content = err.message
     chatMessages.value[assistantIdx].streaming = false
@@ -692,5 +747,15 @@ async function sendChat() {
   }
 }
 
-onMounted(runAnalysis)
+watch(() => props.historyId, (id) => {
+  if (id) historyRecordId.value = id
+})
+
+onMounted(() => {
+  if (props.initialHistory) {
+    applyRestoredHistory(props.initialHistory)
+    return
+  }
+  runAnalysis()
+})
 </script>

@@ -24,10 +24,11 @@ from local_upload import LocalUploadHandler, upload_store
 from subtitles import SubtitleFetcher, sanitize_filename
 from transcriber import Transcriber
 from summarizer import VideoAnalyzer
+from analysis_history_routes import router as analysis_history_router
 from auth_routes import router as auth_router
 from billing import router as billing_router
 from database import get_db
-from deps import get_current_user, require_vip
+from deps import get_current_user
 from membership import check_ai_quota, consume_ai_quota
 from models import User
 
@@ -89,6 +90,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(billing_router)
+app.include_router(analysis_history_router)
 
 
 class ParseRequest(BaseModel):
@@ -393,7 +395,7 @@ async def stream_analyze(session_id: str):
 
 
 @app.get("/api/analyze/{session_id}/rewrite")
-async def rewrite_analyze(session_id: str, user: User = Depends(require_vip)):
+async def rewrite_analyze(session_id: str, user: User = Depends(get_current_user)):
     def event_generator():
         for event in video_analyzer.stream_rewrite(session_id):
             yield event
@@ -410,7 +412,7 @@ async def rewrite_analyze(session_id: str, user: User = Depends(require_vip)):
 
 
 @app.post("/api/subtitles/translate")
-async def translate_subtitles(req: TranslateRequest, user: User = Depends(require_vip)):
+async def translate_subtitles(req: TranslateRequest, user: User = Depends(get_current_user)):
     fmt = req.format.lower()
     if fmt not in ("srt", "vtt", "txt"):
         raise HTTPException(

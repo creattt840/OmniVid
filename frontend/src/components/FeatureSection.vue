@@ -79,7 +79,7 @@ const features = [
   {
     icon: iconNotes,
     title: '笔记导出与历史',
-    desc: '一键导出 Markdown/PDF 笔记，本地保存分析历史，随时回看。',
+    desc: '一键导出 Markdown/PDF 笔记，云端保存分析历史，随时回看。',
     bg: 'bg-rose-50',
     badge: '新功能',
     badgeClass: 'bg-indigo-100 text-primary-dark',

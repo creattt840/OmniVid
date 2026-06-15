@@ -1,5 +1,4 @@
 import os
-import time
 
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -24,40 +23,14 @@ if STRIPE_SECRET_KEY:
 
 @router.post("/checkout")
 def create_checkout(user: User = Depends(get_current_user)):
-    if not STRIPE_SECRET_KEY or not STRIPE_PRICE_ID:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "success": False,
-                "error": "支付服务未配置，请联系管理员设置 STRIPE_SECRET_KEY 和 STRIPE_PRICE_ID",
-                "code": "STRIPE_NOT_CONFIGURED",
-            },
-        )
-    # 5 分钟窗口内同一用户重复点击返回同一 session（Stripe 幂等）
-    bucket = int(time.time()) // 300
-    idempotency_key = f"checkout-{user.id}-{bucket}"
-    try:
-        session = stripe.checkout.Session.create(
-            mode="payment",
-            line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
-            client_reference_id=str(user.id),
-            metadata={"user_id": str(user.id)},
-            success_url=f"{FRONTEND_URL}/?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{FRONTEND_URL}/?checkout=cancel",
-            idempotency_key=idempotency_key,
-        )
-    except stripe.error.StripeError as e:
-        raise HTTPException(
-            status_code=502,
-            detail={"success": False, "error": f"创建支付会话失败: {e.user_message or str(e)}"},
-        )
-    return {
-        "success": True,
-        "data": {
-            "checkout_url": session.url,
-            "session_id": session.id,
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "success": False,
+            "error": "会员功能暂未开放，敬请期待",
+            "code": "MEMBERSHIP_DISABLED",
         },
-    }
+    )
 
 
 def _as_dict(obj) -> dict:

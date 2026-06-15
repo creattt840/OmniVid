@@ -51,7 +51,7 @@
                     v-if="item.badge === 'count' && historyCount > 0"
                     class="px-1.5 py-0.5 text-[10px] font-bold bg-primary text-white rounded-full"
                   >
-                    {{ historyCount > 9 ? '9+' : historyCount }}
+                    {{ historyCount }}
                   </span>
                   <span
                     v-else-if="item.badge === 'soon'"
@@ -111,7 +111,7 @@ const toolItems = [
 const learnItems = [
   { label: '支持平台', href: '#platforms' },
   { label: '功能亮点', href: '#features' },
-  { label: 'VIP 套餐', href: '#pricing' },
+  { label: '定价方案', href: '#pricing' },
 ]
 
 const ICONS = {

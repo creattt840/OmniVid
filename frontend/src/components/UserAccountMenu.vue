@@ -7,12 +7,6 @@
       :aria-expanded="open"
       @click.stop="toggle"
     >
-      <span
-        v-if="isVip"
-        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"
-      >
-        VIP
-      </span>
       <span class="text-sm text-text-secondary max-w-[160px] truncate hidden sm:inline">
         {{ userEmail }}
       </span>
@@ -35,20 +29,17 @@
       >
         <div class="px-4 py-3 border-b border-border-light">
           <p class="text-sm font-medium text-text-primary truncate">{{ userEmail }}</p>
-          <p v-if="isVip" class="text-xs text-amber-600 mt-1">
-            VIP 会员 · 到期 {{ formatDate(vipExpiresAt) }}
-          </p>
-          <p v-else class="text-xs text-text-muted mt-1">
-            免费版 · 今日 AI {{ aiUsageToday }}/{{ aiDailyLimit }}
+          <p class="text-xs text-text-muted mt-1">
+            今日 AI 分析 {{ aiUsageToday }}/{{ aiDailyLimit }}
           </p>
         </div>
         <div class="py-1">
           <button
             type="button"
-            class="w-full text-left px-4 py-2.5 text-sm text-text-secondary hover:bg-surface-muted hover:text-primary transition-colors cursor-pointer"
-            @click="handleRenew"
+            class="w-full text-left px-4 py-2.5 text-sm text-text-muted cursor-not-allowed"
+            disabled
           >
-            {{ isVip ? '续费 VIP' : '开通 VIP' }}
+            开通会员（暂未开放）
           </button>
           <button
             type="button"
@@ -68,14 +59,12 @@ import { ref, watch, onUnmounted } from 'vue'
 
 defineProps({
   isLoggedIn: { type: Boolean, default: false },
-  isVip: { type: Boolean, default: false },
   userEmail: { type: String, default: '' },
-  vipExpiresAt: { type: String, default: '' },
   aiUsageToday: { type: Number, default: 0 },
-  aiDailyLimit: { type: Number, default: 3 },
+  aiDailyLimit: { type: Number, default: 10 },
 })
 
-const emit = defineEmits(['renew-vip', 'logout'])
+const emit = defineEmits(['logout'])
 
 const open = ref(false)
 const rootRef = ref(null)
@@ -86,17 +75,6 @@ function toggle() {
 
 function close() {
   open.value = false
-}
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
-}
-
-function handleRenew() {
-  close()
-  emit('renew-vip')
 }
 
 function handleLogout() {
@@ -112,7 +90,6 @@ function onClickOutside(e) {
 
 watch(open, (isOpen) => {
   if (isOpen) {
-    // 延迟绑定，避免打开弹窗的同一击立即触发关闭
     setTimeout(() => document.addEventListener('click', onClickOutside), 0)
   } else {
     document.removeEventListener('click', onClickOutside)
