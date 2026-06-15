@@ -92,12 +92,12 @@ URL → 尝试字幕（B站 API / yt-dlp VTT）
 
 ### 新增后端模块
 
-| 文件 | 职责 |
+| 路径 | 职责 |
 |------|------|
-| `backend/subtitles.py` | 统一字幕拉取与 VTT/SRT/JSON 解析、序列化导出 |
-| `backend/transcriber.py` | 无字幕时音频下载 + Whisper ASR |
-| `backend/summarizer.py` | DeepSeek 调用、Session 管理、SSE |
-| `backend/summary_parser.py` | 流式 JSON 摘要解析与截断修复 |
+| `app/services/ai/subtitles.py` | 统一字幕拉取与 VTT/SRT/JSON 解析、序列化导出 |
+| `app/services/ai/transcriber.py` | 无字幕时音频下载 + Whisper ASR |
+| `app/services/ai/summarizer.py` | DeepSeek 调用、Session 管理、SSE |
+| `app/services/ai/summary_parser.py` | 流式 JSON 摘要解析与截断修复 |
 
 ### 新增前端模块
 
@@ -146,7 +146,7 @@ WHISPER_MAX_DURATION=3600
 
 1. 启动后端与前端（见 [本地运行指南.md](./本地运行指南.md)）
 2. 配置 `backend/.env` 中的 `DEEPSEEK_API_KEY`
-3. 粘贴视频链接 → 解析 → 点击 **「AI 分析」**
+3. 粘贴视频链接 → 解析 → 右栏自动开始 **AI 分析**（需登录）
 4. 依次查看：摘要（流式）、转录（时间戳）、思维导图（树形图）、AI 问答
 5. 点击 **「下载字幕」** 导出 SRT 文件
 6. 思维导图 Tab → **全屏** / **下载**（PNG、SVG、Markdown）
@@ -168,7 +168,7 @@ WHISPER_MAX_DURATION=3600
 | 字幕下载 | 有（SRT/VTT/TXT） | 有（含 Whisper 兜底） |
 | AI 问答 | 有 | 有 |
 | 笔记导出 | Notion / PDF 等 | 思维导图 Markdown / PNG / SVG |
-| 用户配额 / VIP 门控 | 有 | 后续阶段（第 5–6 阶段） |
+| 用户配额 / VIP 门控 | 有 | 登录每日 10 次；VIP 暂未开放 |
 
 ## 八、已知限制
 
@@ -183,18 +183,18 @@ WHISPER_MAX_DURATION=3600
 
 | 阶段 | 内容 | 状态 |
 |------|------|------|
-| 第 5 阶段 | SQLite + JWT 用户登录 | 待开发 |
-| 第 6 阶段 | Stripe 付费 + VIP 配额门控 | 待开发 |
-| 第 7 阶段 | 全链路验收 + 部署 | 待开发 |
+| 第 5–7 阶段 | 用户登录、云端历史、每日配额 | 已完成 |
+| 第 8 阶段 | 部署与移动端验收 | 待开发 |
 
 **v1 未纳入、可后续扩展：**
 
-- 笔记同步（Notion / Obsidian / PDF）
+- 笔记同步（Notion / Obsidian）
 - 批量分析
-- 免费 3 次/日 AI 配额（需用户系统）
-- 本地视频文件上传解析（菜单已预留）
+- VIP 会员重新开放
 
-**已实现（本阶段）：**
+**已实现（后续阶段）：**
 
-- 多语言字幕翻译、分析历史持久化（localStorage）
+- 多语言字幕翻译、云端分析历史
 - 摘要 Markdown/PDF 导出、AI 改写文章、章节导航、直链下载优化
+- 本地视频文件上传解析
+- 后端工程化分层结构（见 `docs/阶段总结-后端工程化重构.md`）

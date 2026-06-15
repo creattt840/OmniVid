@@ -78,9 +78,18 @@ video-downloader/
 
 - [SEO 与 GEO 优化指南](docs/SEO与GEO优化.md)
 - [本地运行指南](docs/本地运行指南.md)
+- [阶段总结-后端工程化重构](docs/阶段总结-后端工程化重构.md)
 - [阶段总结-本地视频上传解析](docs/阶段总结-本地视频上传解析.md)
 - [阶段总结-平台图标与体验优化](docs/阶段总结-平台图标与体验优化.md)
 - [阶段总结-功能扩展与导航优化](docs/阶段总结-功能扩展与导航优化.md)
 - [阶段总结-用户登录与VIP会员](docs/阶段总结-用户登录与VIP会员.md)
 - [阶段总结-用户分析历史](docs/阶段总结-用户分析历史.md)
 - [阶段总结-前端体验优化](docs/阶段总结-前端体验优化.md)
+
+## 测试
+
+```bash
+cd backend
+pip install pytest httpx
+python -m pytest tests/ -v
+```

@@ -4,13 +4,13 @@
 
 ### 后端
 
-| 模块 | 文件 | 说明 |
+| 模块 | 路径 | 说明 |
 |------|------|------|
-| 数据库 | `database.py`, `models.py` | SQLite：users、memberships、usage_daily、stripe_events |
-| 认证 | `auth_utils.py`, `auth_routes.py` | JWT + bcrypt 注册/登录/me |
-| 会员 | `membership.py`, `deps.py` | VIP 判定、每日 AI 配额、鉴权依赖 |
-| 支付 | `billing.py` | Stripe Checkout（一次性 ¥9.9）+ Webhook 验签与幂等 |
-| 测试 | `test_membership.py` | 注册登录、配额、Webhook 幂等 |
+| 数据库 | `app/db/connection.py`, `app/db/models.py` | SQLite：users、memberships、usage_daily、stripe_events |
+| 认证 | `app/core/security/jwt.py`, `app/api/auth.py` | JWT + bcrypt 注册/登录/me |
+| 会员 | `app/services/membership.py`, `app/core/dependencies.py` | VIP 判定、每日 AI 配额、鉴权依赖 |
+| 支付 | `app/api/billing.py` | Stripe Checkout（一次性 ¥9.9）+ Webhook 验签与幂等 |
+| 测试 | `tests/test_membership.py` | 注册登录、配额、Webhook 幂等 |
 
 ### 前端
 
@@ -26,8 +26,8 @@
 | 功能 | 免费（需登录） | VIP |
 |------|----------------|-----|
 | 解析/下载 | 无限 | 无限 |
-| AI 总结 | 每日 3 次 | 无限 |
-| 字幕翻译 / AI 改写 / PDF 导出 | 不可用 | 可用 |
+| AI 总结 | 每日 10 次 | 暂未开放更高额度 |
+| 字幕翻译 / AI 改写 / PDF 导出 | 登录可用 | 暂未开放 |
 
 ## 2. 支付流程
 

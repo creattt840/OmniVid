@@ -34,7 +34,7 @@
           </ul>
           <button
             class="w-full h-12 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-dark transition-colors cursor-pointer"
-            @click="$emit('need-login')"
+            @click="handleFreePlanClick"
           >
             {{ isLoggedIn ? '立即使用' : '免费使用' }}
           </button>
@@ -77,11 +77,16 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   isLoggedIn: { type: Boolean, default: false },
 })
 
-defineEmits(['need-login'])
+const emit = defineEmits(['need-login', 'use-now'])
+
+function handleFreePlanClick() {
+  if (props.isLoggedIn) emit('use-now')
+  else emit('need-login')
+}
 
 const freePlan = [
   '1800+ 平台视频下载',

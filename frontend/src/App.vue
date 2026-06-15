@@ -87,6 +87,7 @@
         <PricingSection
           :is-logged-in="isLoggedIn"
           @need-login="openAuth('login')"
+          @use-now="handlePricingUseNow"
         />
       </template>
     </main>
@@ -344,6 +345,11 @@ function resetWorkspace() {
 function handleNewParse() {
   resetWorkspace()
   menuOpen.value = false
+}
+
+function handlePricingUseNow() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  nextTick(() => document.getElementById('video-url-input')?.focus())
 }
 
 function handleMenuHistory() {
