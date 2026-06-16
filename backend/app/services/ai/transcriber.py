@@ -23,6 +23,50 @@ _whisper_model = None
 _NO_SPEECH_THRESHOLD = 0.6
 _MIN_AVG_LOGPROB = -1.0
 
+# faster-whisper 内置尺寸名（非路径）
+_BUILTIN_MODEL_SIZES = frozenset({
+    "tiny", "tiny.en", "base", "base.en", "small", "small.en",
+    "medium", "medium.en", "large-v1", "large-v2", "large-v3", "large",
+    "distil-large-v2", "distil-medium.en", "distil-small.en",
+    "distil-large-v3", "large-v3-turbo", "turbo",
+})
+
+
+def resolve_whisper_model_spec(model_spec: str) -> str:
+    """
+    解析 WHISPER_MODEL：内置尺寸名、HuggingFace repo（Systran/...）、或本地目录。
+    本地目录必须存在且含 model.bin，否则给出明确错误（避免误当作 HF repo id）。
+    """
+    spec = (model_spec or "small").strip()
+    if spec in _BUILTIN_MODEL_SIZES:
+        return spec
+
+    path = Path(spec).expanduser()
+    is_local_path = path.is_absolute() or spec.startswith((".", "~"))
+
+    if not is_local_path and "/" in spec and "\\" not in spec:
+        # 例如 Systran/faster-whisper-small
+        return spec
+
+    if not is_local_path and path.exists():
+        is_local_path = True
+
+    if is_local_path:
+        resolved = path.resolve()
+        if not resolved.is_dir():
+            raise ValueError(
+                f"Whisper 本地模型目录不存在: {resolved}。"
+                "请确认已上传到服务器，或检查 .env 中 WHISPER_MODEL 路径。"
+            )
+        if not (resolved / "model.bin").is_file():
+            raise ValueError(
+                f"Whisper 模型目录不完整，缺少 model.bin: {resolved}。"
+                "请重新上传 Systran/faster-whisper-small 的全部文件。"
+            )
+        return str(resolved)
+
+    return spec
+
 
 def _filter_whisper_segments(segments_iter) -> list[dict]:
     segments = []
@@ -44,7 +88,10 @@ def _get_whisper_model(model_size: str = "small"):
     global _whisper_model
     if _whisper_model is None:
         from faster_whisper import WhisperModel
-        _whisper_model = WhisperModel(model_size, device="cpu", compute_type="int8")
+
+        resolved = resolve_whisper_model_spec(model_size)
+        logger.info("加载 Whisper 模型: %s", resolved)
+        _whisper_model = WhisperModel(resolved, device="cpu", compute_type="int8")
     return _whisper_model
 
 

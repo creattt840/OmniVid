@@ -379,6 +379,9 @@ import { downloadSegments } from '../utils/subtitleExport.js'
 import { downloadSummaryMarkdown, downloadSummaryPdf } from '../utils/summaryExport.js'
 import { parseTimeString, buildVideoUrlWithTimestamp } from '../utils/timeUtils.js'
 import { renderMarkdown } from '../utils/markdownRender.js'
+import { useAuth } from '../composables/useAuth.js'
+
+const { refreshUser } = useAuth()
 
 const props = defineProps({
   url: { type: String, default: '' },
@@ -689,6 +692,8 @@ async function runAnalysis() {
     })
     if (!res.success) throw new Error(res.error || '分析失败')
 
+    await refreshUser()
+
     sessionId.value = res.data.session_id
     meta.value = res.data
     emit('transcript-available')
@@ -712,6 +717,9 @@ async function runAnalysis() {
     }
     if (err.code === 'AUTH_REQUIRED' || err.code === 'AUTH_EXPIRED') {
       authRetryPending.value = true
+    }
+    if (err.code === 'QUOTA_EXCEEDED') {
+      await refreshUser()
     }
     if (err.code) emit('upgrade-required', err.code)
   }
