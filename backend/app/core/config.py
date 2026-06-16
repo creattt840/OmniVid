@@ -47,6 +47,8 @@ class Settings:
         self.deepseek_model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
         self.whisper_model = os.getenv("WHISPER_MODEL", "small")
         self.whisper_max_duration = int(os.getenv("WHISPER_MAX_DURATION", "3600"))
+        self.whisper_beam_size = int(os.getenv("WHISPER_BEAM_SIZE", "1"))
+        self.whisper_warmup = os.getenv("WHISPER_WARMUP", "true").lower() in ("1", "true", "yes")
         self.upload_max_size_mb = int(os.getenv("UPLOAD_MAX_SIZE_MB", "500"))
         upload_max = os.getenv("UPLOAD_MAX_DURATION")
         self.upload_max_duration = int(upload_max) if upload_max else self.whisper_max_duration

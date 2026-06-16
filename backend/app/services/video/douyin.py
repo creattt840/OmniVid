@@ -65,6 +65,13 @@ class DouyinParser:
         resolved_url = self._resolve_redirect(share_url)
         video_id = self._extract_video_id(resolved_url)
         item_info = self._fetch_item_info(video_id, resolved_url)
+
+        from app.services.video.metadata_cache import put_douyin
+
+        put_douyin(share_url, item_info=item_info, video_id=video_id)
+        put_douyin(resolved_url, item_info=item_info, video_id=video_id)
+        put_douyin(url, item_info=item_info, video_id=video_id)
+
         return self._build_result(item_info, video_id)
 
     def download(self, url: str, mode: str = "video") -> dict:

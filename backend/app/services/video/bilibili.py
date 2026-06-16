@@ -75,6 +75,33 @@ class BilibiliParser:
             from datetime import datetime
             upload_date = datetime.fromtimestamp(pubdate).strftime("%Y%m%d")
 
+        from app.services.video.metadata_cache import put_bilibili
+
+        put_bilibili(
+            share_url,
+            view_data=view_data,
+            cid=cid,
+            bvid=bvid,
+            aid=aid,
+            page=page,
+        )
+        put_bilibili(
+            resolved_url,
+            view_data=view_data,
+            cid=cid,
+            bvid=bvid,
+            aid=aid,
+            page=page,
+        )
+        put_bilibili(
+            url,
+            view_data=view_data,
+            cid=cid,
+            bvid=bvid,
+            aid=aid,
+            page=page,
+        )
+
         return {
             "id": bvid or str(aid),
             "title": view_data.get("title") or "未知标题",
@@ -309,6 +336,25 @@ class BilibiliParser:
         if videos:
             return videos[0].get("baseUrl") or videos[0].get("base_url")
         return None
+
+    @staticmethod
+    def _get_audio_url(play_data: dict) -> tuple[Optional[str], bool]:
+        """
+        返回 (媒体 URL, 是否需要 FFmpeg 从视频中抽音)。
+        优先 DASH 纯音频轨（体积小）；否则回退渐进流（音视频混合）。
+        """
+        dash = play_data.get("dash") or {}
+        audios = dash.get("audio") or []
+        if audios:
+            track = min(audios, key=lambda a: a.get("bandwidth") or 0)
+            url = track.get("baseUrl") or track.get("base_url")
+            if url:
+                return url, False
+
+        media_url = BilibiliParser._get_media_url(play_data)
+        if media_url:
+            return media_url, True
+        return None, False
 
     @staticmethod
     def _parse_format_qn(format_id: str) -> int:

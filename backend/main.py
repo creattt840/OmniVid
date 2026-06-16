@@ -9,11 +9,16 @@ load_dotenv()
 from app.api.router import api_router
 from app.db.connection import init_db
 from app.services.container import cleanup_on_shutdown
+from app.core.config import get_settings
+from app.services.ai.transcriber import warmup_whisper
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    settings = get_settings()
+    if settings.whisper_warmup:
+        warmup_whisper(settings.whisper_model)
     yield
     cleanup_on_shutdown()
 

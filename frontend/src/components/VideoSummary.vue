@@ -391,6 +391,7 @@ const props = defineProps({
   initialHistory: { type: Object, default: null },
   historyId: { type: Number, default: null },
   demoMode: { type: Boolean, default: false },
+  videoDuration: { type: Number, default: 0 },
 })
 
 const emit = defineEmits(['close', 'completed', 'sync-history', 'seek-video', 'upgrade-required', 'transcript-available', 'transcript-unavailable'])
@@ -454,7 +455,13 @@ const translateLangs = [
 
 const statusText = computed(() => {
   if (phase.value === 'preparing') return '正在准备分析...'
-  if (phase.value === 'transcribing') return '正在提取/转写视频文本...'
+  if (phase.value === 'transcribing') {
+    const mins = props.videoDuration > 0 ? Math.max(1, Math.round(props.videoDuration / 60)) : 0
+    if (mins > 0) {
+      return `正在下载并转写音频（约 ${mins} 分钟视频，无字幕时可能需 1–3 分钟）...`
+    }
+    return '正在下载并转写音频（无字幕视频可能需 1–3 分钟）...'
+  }
   if (phase.value === 'summarizing') return 'AI 正在生成摘要与思维导图...'
   if (rewriteLoading.value) return 'AI 正在改写文章...'
   return ''

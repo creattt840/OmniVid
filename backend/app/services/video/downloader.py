@@ -55,6 +55,10 @@ class VideoDownloader:
     def parse_video(self, url: str) -> dict:
         info = ytdlp_extract_info(url, download=False)
 
+        from app.services.video.metadata_cache import put_ytdlp_info
+
+        put_ytdlp_info(url, info)
+
         formats = self._extract_formats(info)
         platform = info.get("extractor", info.get("extractor_key", "Unknown"))
 

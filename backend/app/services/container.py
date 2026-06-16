@@ -65,6 +65,7 @@ def get_transcriber() -> Transcriber:
             ffmpeg_path=downloader.ffmpeg_path,
             model_size=_settings.whisper_model,
             max_duration=_settings.whisper_max_duration,
+            beam_size=_settings.whisper_beam_size,
         )
     return _transcriber
 

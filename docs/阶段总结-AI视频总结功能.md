@@ -69,6 +69,12 @@
 - `prepare_transcript` 前强制校验，无足够人声时明确拒绝分析
 - 详见 [阶段总结-转录质量门控.md](阶段总结-转录质量门控.md) 与 [测试报告](测试报告-无语音视频幻觉评估.md)
 
+### 2.10 无字幕解析提速（2026-06-16）
+
+- B站优先 DASH 纯音频轨；抖音 / 回退路径 FFmpeg 16kHz 抽音
+- `WHISPER_BEAM_SIZE=1`、`WHISPER_WARMUP=true`；parse → analyze 元数据缓存
+- 详见 [阶段总结-无字幕解析提速.md](阶段总结-无字幕解析提速.md)
+
 ## 三、技术实现
 
 ```
@@ -128,11 +134,13 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 WHISPER_MODEL=small
 WHISPER_MAX_DURATION=3600
+WHISPER_BEAM_SIZE=1
+WHISPER_WARMUP=true
 ```
 
 > `.env` 已在 `.gitignore` 中，请勿提交到 Git。
 
-首次使用 Whisper 会自动下载约 500MB 的 `small` 模型；无字幕视频转写耗时较长，属正常现象。
+首次使用 Whisper 会自动下载约 500MB 的 `small` 模型。无字幕转写已做性能优化（纯音频下载、元数据缓存、beam_size 可调），详见 [阶段总结-无字幕解析提速.md](./阶段总结-无字幕解析提速.md)。
 
 ## 五、验证情况
 

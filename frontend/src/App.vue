@@ -58,6 +58,7 @@
                   :local-mode="sourceMode === 'local'"
                   :video-url="sourceMode === 'url' ? currentUrl : ''"
                   :thumbnail="videoData?.thumbnail || ''"
+                  :video-duration="videoData?.duration || 0"
                   :is-logged-in="isLoggedIn"
                   :initial-history="restoredHistory"
                   :history-id="activeHistoryId"

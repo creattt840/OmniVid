@@ -193,12 +193,30 @@ class SubtitleFetcher:
         return self._fetch_ytdlp(url)
 
     def _fetch_bilibili(self, url: str) -> tuple[list[Segment], dict]:
-        share_url = self.bilibili._extract_url(url)
-        resolved = self.bilibili._resolve_redirect(share_url)
-        bvid, aid, page = self.bilibili._parse_video_id(resolved)
-        view_data = self.bilibili._fetch_view(bvid=bvid, aid=aid)
-        cid = self.bilibili._resolve_cid(view_data, page)
-        aid = view_data["aid"]
+        from app.services.video.metadata_cache import get_bilibili, put_bilibili
+
+        ctx = get_bilibili(url)
+        if ctx:
+            view_data = ctx["view_data"]
+            cid = ctx["cid"]
+            bvid = ctx.get("bvid")
+            aid = ctx["aid"]
+        else:
+            share_url = self.bilibili._extract_url(url)
+            resolved = self.bilibili._resolve_redirect(share_url)
+            bvid, aid, page = self.bilibili._parse_video_id(resolved)
+            view_data = self.bilibili._fetch_view(bvid=bvid, aid=aid)
+            cid = self.bilibili._resolve_cid(view_data, page)
+            aid = view_data["aid"]
+            put_bilibili(
+                url,
+                view_data=view_data,
+                cid=cid,
+                bvid=bvid,
+                aid=aid,
+                page=page,
+            )
+
         duration = view_data.get("duration") or 0
 
         meta = {
@@ -217,7 +235,12 @@ class SubtitleFetcher:
         return segments, meta
 
     def _fetch_ytdlp(self, url: str) -> tuple[list[Segment], dict]:
-        info = ytdlp_extract_info(url, download=False)
+        from app.services.video.metadata_cache import get_ytdlp_info, put_ytdlp_info
+
+        info = get_ytdlp_info(url)
+        if not info:
+            info = ytdlp_extract_info(url, download=False)
+            put_ytdlp_info(url, info)
 
         meta = {
             "title": info.get("title") or "未知标题",

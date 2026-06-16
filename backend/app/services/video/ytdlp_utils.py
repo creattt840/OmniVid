@@ -80,6 +80,21 @@ def download(url: str, **extra_opts: Any) -> None:
     raise last_err
 
 
+def download_from_info(url: str, info: dict, **extra_opts: Any) -> dict:
+    """复用已缓存的 extract_info 结果下载，避免重复拉取元数据。"""
+    last_err: Optional[Exception] = None
+    for base in iter_ytdlp_strategies(url):
+        opts = {**base, **extra_opts}
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                ydl.process_ie_result(info.copy(), download=True)
+            return info
+        except Exception as exc:
+            last_err = exc
+    assert last_err is not None
+    raise last_err
+
+
 def format_ytdlp_error(exc: Exception, *, url: str = "") -> str:
     """将 yt-dlp 原始异常转为用户可读提示"""
     msg = ANSI_ESCAPE.sub("", str(exc)).strip()
