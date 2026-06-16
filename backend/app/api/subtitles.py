@@ -8,6 +8,7 @@ from app.core.dependencies import get_current_user
 from app.db.models import User
 from app.schemas.subtitles import SubtitleDownloadRequest, TranslateRequest
 from app.services.ai.subtitles import SubtitleFetcher, sanitize_filename
+from app.services.ai.transcript_quality import assert_transcript_quality
 from app.services.container import get_subtitle_fetcher, get_transcriber, get_video_analyzer
 
 router = APIRouter(prefix="/api/subtitles", tags=["subtitles"])
@@ -27,6 +28,8 @@ def _fetch_transcript_segments(url: str) -> tuple[list, dict, str]:
             raise ValueError(f"无法获取视频字幕：{e}") from e
     if not segments:
         raise ValueError("无法获取视频字幕（无字幕且语音转写失败）")
+    duration = int(meta.get("duration") or 0)
+    assert_transcript_quality(segments, duration)
     return segments, meta, source
 
 

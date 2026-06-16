@@ -83,12 +83,26 @@
         <StatsBar v-if="showSlogan" />
       </div>
     </div>
+
+    <AlertDialog
+      :open="invalidUrlOpen"
+      title="请输入视频链接"
+      :message="invalidUrlMessage"
+      @close="invalidUrlOpen = false"
+    />
   </section>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import StatsBar from './StatsBar.vue'
+import AlertDialog from './AlertDialog.vue'
+import {
+  normalizeVideoUrl,
+  isHttpUrl,
+  isLikelyVideoUrl,
+  getInvalidVideoUrlMessage,
+} from '../utils/videoUrl.js'
 
 const props = defineProps({
   loading: Boolean,
@@ -100,6 +114,8 @@ const emit = defineEmits(['parse', 'upload-local'])
 
 const url = ref('')
 const placeholder = '粘贴 B站 / YouTube / 抖音等链接，立即解析'
+const invalidUrlOpen = ref(false)
+const invalidUrlMessage = ref('')
 
 const demos = [
   { label: 'YouTube', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
@@ -107,10 +123,23 @@ const demos = [
 ]
 
 function onSubmit() {
-  const trimmed = url.value.trim()
-  if (trimmed && !props.loading) {
-    emit('parse', trimmed)
+  if (props.loading) return
+  const trimmed = normalizeVideoUrl(url.value)
+  if (!trimmed) return
+
+  if (!isHttpUrl(trimmed)) {
+    invalidUrlMessage.value = '请输入以 http:// 或 https:// 开头的有效链接'
+    invalidUrlOpen.value = true
+    return
   }
+
+  if (!isLikelyVideoUrl(trimmed)) {
+    invalidUrlMessage.value = getInvalidVideoUrlMessage()
+    invalidUrlOpen.value = true
+    return
+  }
+
+  emit('parse', trimmed)
 }
 
 defineExpose({

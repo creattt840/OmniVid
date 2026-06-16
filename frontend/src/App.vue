@@ -44,6 +44,7 @@
                   :downloadingSubtitles="downloadingSubtitles"
                   :subtitleLoadingText="subtitleLoadingText"
                   :errorMsg="downloadError"
+                  :subtitle-download-available="subtitleDownloadAvailable"
                   @download="handleDownload"
                   @download-subtitles="handleDownloadSubtitles"
                 />
@@ -64,6 +65,8 @@
                   @sync-history="handleHistorySync"
                   @seek-video="handleSeekVideo"
                   @upgrade-required="handleUpgradeRequired"
+                  @transcript-available="transcriptAvailable = true"
+                  @transcript-unavailable="transcriptAvailable = false"
                 />
               </div>
             </div>
@@ -129,6 +132,13 @@
       @success="handleAuthSuccess"
     />
 
+    <AlertDialog
+      :open="invalidUrlOpen"
+      title="请输入视频链接"
+      :message="invalidUrlMessage"
+      @close="invalidUrlOpen = false"
+    />
+
     <!-- Toast 提示 -->
     <Teleport to="body">
       <Transition name="toast">
@@ -162,7 +172,9 @@ import FeatureSection from './components/FeatureSection.vue'
 import HowToSection from './components/HowToSection.vue'
 import PricingSection from './components/PricingSection.vue'
 import AppFooter from './components/AppFooter.vue'
+import AlertDialog from './components/AlertDialog.vue'
 import { parseVideo, downloadViaServer, downloadSubtitles, getDirectUrl, downloadFromDirectUrl, triggerBlobDownload, parseFilenameFromDisposition } from './api/video.js'
+import { getInvalidVideoUrlMessage, isUnsupportedUrlError } from './utils/videoUrl.js'
 import { getUploadStreamUrl } from './api/upload.js'
 import { fetchHistory, saveHistory, deleteHistory, clearHistory } from './api/history.js'
 import { useAuth } from './composables/useAuth.js'
@@ -190,6 +202,10 @@ const authMode = ref('login')
 const videoResultRef = ref(null)
 const restoredHistory = ref(null)
 const activeHistoryId = ref(null)
+const invalidUrlOpen = ref(false)
+const invalidUrlMessage = ref('')
+/** null=未知, true=可下载字幕, false=不可 */
+const transcriptAvailable = ref(null)
 
 const previewUrl = computed(() => {
   if (sourceMode.value === 'local' && fileId.value) {
@@ -202,6 +218,16 @@ const previewUrl = computed(() => {
 const summaryKey = computed(() => {
   if (restoredHistory.value) return `history:${restoredHistory.value.id}`
   return sourceMode.value === 'local' ? `local:${fileId.value}` : `url:${currentUrl.value}`
+})
+
+const subtitleDownloadAvailable = computed(() => {
+  if (sourceMode.value === 'local') {
+    return !!(videoData.value?.has_subtitle_file || transcriptAvailable.value === true)
+  }
+  if (transcriptAvailable.value === true) return true
+  if (transcriptAvailable.value === false) return false
+  const v = videoData.value
+  return !!(v?.subtitles?.length || v?.automatic_captions?.length)
 })
 
 onMounted(async () => {
@@ -285,6 +311,7 @@ async function handleHistorySelect(item) {
   videoData.value = null
   parseError.value = ''
   downloadError.value = ''
+  transcriptAvailable.value = item.segments?.length ? true : null
   showSummary.value = false
   currentUrl.value = item.url
   fileId.value = ''
@@ -340,6 +367,7 @@ function resetWorkspace() {
   sourceMode.value = 'url'
   restoredHistory.value = null
   activeHistoryId.value = null
+  transcriptAvailable.value = null
   parseError.value = ''
   downloadError.value = ''
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -369,6 +397,7 @@ async function handleUploadSuccess(data) {
   resetWorkspace()
   restoredHistory.value = null
   activeHistoryId.value = null
+  transcriptAvailable.value = data.has_subtitle_file ? true : null
   // 等待卸载旧 VideoSummary，避免同 tick 批处理导致组件复用、残留上次分析
   await nextTick()
   sourceMode.value = 'local'
@@ -397,11 +426,23 @@ function showComingSoon(feature) {
   showToast(`${feature}功能即将上线`)
 }
 
+function showInvalidVideoUrl(message = getInvalidVideoUrlMessage()) {
+  invalidUrlMessage.value = message
+  invalidUrlOpen.value = true
+  parseError.value = ''
+}
+
+function resolveParseErrorMessage(err) {
+  const detail = err.response?.data?.detail
+  return typeof detail === 'object' ? detail.error : (detail || err.message || '请检查链接是否正确')
+}
+
 async function handleParse(url) {
   loading.value = true
   videoData.value = null
   parseError.value = ''
   downloadError.value = ''
+  transcriptAvailable.value = null
   showSummary.value = false
   currentUrl.value = url
   fileId.value = ''
@@ -416,11 +457,20 @@ async function handleParse(url) {
       showSummary.value = true
       showToast('解析成功，正在生成 AI 摘要...', 'success')
     } else {
-      parseError.value = res.error || '未知错误'
+      const msg = res.error || '未知错误'
+      if (isUnsupportedUrlError(msg)) {
+        showInvalidVideoUrl()
+      } else {
+        parseError.value = msg
+      }
     }
   } catch (err) {
-    const detail = err.response?.data?.detail
-    parseError.value = typeof detail === 'object' ? detail.error : (detail || err.message || '请检查链接是否正确')
+    const msg = resolveParseErrorMessage(err)
+    if (isUnsupportedUrlError(msg)) {
+      showInvalidVideoUrl()
+    } else {
+      parseError.value = msg
+    }
   } finally {
     loading.value = false
   }
@@ -475,7 +525,11 @@ async function handleDownloadSubtitles() {
     showToast(msg, 'success')
   } catch (err) {
     const detail = err.response?.data?.detail
-    downloadError.value = typeof detail === 'object' ? detail.error : (detail || err.message || '字幕下载失败')
+    const msg = typeof detail === 'object' ? detail.error : (detail || err.message || '字幕下载失败')
+    downloadError.value = msg
+    if (/未检测到足够的人声|语音转写未识别|无法获取视频字幕|转录内容均为|人声内容占比|未检测到可转写/.test(msg)) {
+      transcriptAvailable.value = false
+    }
   } finally {
     downloadingSubtitles.value = false
     subtitleLoadingText.value = '字幕处理中...'

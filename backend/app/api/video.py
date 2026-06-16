@@ -9,6 +9,7 @@ from app.schemas.video import DownloadRequest, ParseRequest
 from app.services.container import get_bilibili_parser, get_douyin_parser, get_downloader
 from app.services.video.bilibili import is_bilibili_url
 from app.services.video.douyin import is_douyin_url
+from app.services.video.url_validation import VideoUrlValidationError, validate_video_url
 from app.services.video.ytdlp_utils import format_ytdlp_error
 
 router = APIRouter(prefix="/api", tags=["video"])
@@ -17,18 +18,28 @@ router = APIRouter(prefix="/api", tags=["video"])
 @router.post("/parse")
 async def parse_video(req: ParseRequest):
     try:
-        loop = asyncio.get_event_loop()
-        if is_douyin_url(req.url):
-            result = await loop.run_in_executor(None, get_douyin_parser().parse, req.url)
-        elif is_bilibili_url(req.url):
-            result = await loop.run_in_executor(None, get_bilibili_parser().parse, req.url)
-        else:
-            result = await loop.run_in_executor(None, get_downloader().parse_video, req.url)
-        return {"success": True, "data": result}
-    except Exception as e:
+        url = validate_video_url(req.url)
+    except VideoUrlValidationError as e:
         raise HTTPException(
             status_code=400,
-            detail={"success": False, "error": f"解析失败: {format_ytdlp_error(e, url=req.url)}"},
+            detail={"success": False, "error": str(e)},
+        )
+    try:
+        loop = asyncio.get_event_loop()
+        if is_douyin_url(url):
+            result = await loop.run_in_executor(None, get_douyin_parser().parse, url)
+        elif is_bilibili_url(url):
+            result = await loop.run_in_executor(None, get_bilibili_parser().parse, url)
+        else:
+            result = await loop.run_in_executor(None, get_downloader().parse_video, url)
+        return {"success": True, "data": result}
+    except Exception as e:
+        err_msg = format_ytdlp_error(e, url=url)
+        if "unsupported url" in err_msg.lower():
+            err_msg = "无法识别为视频链接，请输入 B站、YouTube、抖音、TikTok 等平台的视频页面地址"
+        raise HTTPException(
+            status_code=400,
+            detail={"success": False, "error": f"解析失败: {err_msg}"},
         )
 
 

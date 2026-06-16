@@ -393,7 +393,7 @@ const props = defineProps({
   demoMode: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'completed', 'sync-history', 'seek-video', 'upgrade-required'])
+const emit = defineEmits(['close', 'completed', 'sync-history', 'seek-video', 'upgrade-required', 'transcript-available', 'transcript-unavailable'])
 
 const tabs = [
   { id: 'summary', label: '摘要' },
@@ -635,6 +635,11 @@ watch(() => props.isLoggedIn, (loggedIn) => {
   }
 })
 
+function isTranscriptUnavailableError(message) {
+  if (!message) return false
+  return /未检测到足够的人声|语音转写未识别|无法获取视频转录|无法获取视频字幕|转录内容均为|人声内容占比|未检测到可转写/.test(message)
+}
+
 function applyRestoredHistory(data) {
   restoredMode.value = true
   historyRecordId.value = data.id
@@ -653,6 +658,11 @@ function applyRestoredHistory(data) {
     content: m.content,
     streaming: false,
   }))
+  if (data.segments?.length) {
+    emit('transcript-available')
+  } else {
+    emit('transcript-unavailable')
+  }
 }
 
 async function runAnalysis() {
@@ -674,6 +684,7 @@ async function runAnalysis() {
 
     sessionId.value = res.data.session_id
     meta.value = res.data
+    emit('transcript-available')
 
     phase.value = 'summarizing'
     await streamAnalyze(sessionId.value, handleStreamEvent)
@@ -689,6 +700,9 @@ async function runAnalysis() {
   } catch (err) {
     phase.value = 'error'
     error.value = err.message || '分析失败，请稍后重试'
+    if (isTranscriptUnavailableError(error.value)) {
+      emit('transcript-unavailable')
+    }
     if (err.code === 'AUTH_REQUIRED' || err.code === 'AUTH_EXPIRED') {
       authRetryPending.value = true
     }
@@ -714,6 +728,9 @@ function handleStreamEvent(event) {
   } else if (event.type === 'error') {
     error.value = event.message
     phase.value = 'error'
+    if (isTranscriptUnavailableError(event.message)) {
+      emit('transcript-unavailable')
+    }
   }
 }
 

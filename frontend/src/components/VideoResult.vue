@@ -165,6 +165,7 @@
           </button>
 
           <button
+            v-if="subtitleDownloadAvailable"
             @click="$emit('download-subtitles')"
             :disabled="downloadingSubtitles"
             :title="video.subtitles?.length ? '下载视频字幕' : '无原生字幕时将自动语音转写'"
@@ -203,6 +204,7 @@ const props = defineProps({
   workspace: Boolean,
   localMode: Boolean,
   previewUrl: { type: String, default: '' },
+  subtitleDownloadAvailable: { type: Boolean, default: false },
 })
 
 defineEmits(['download', 'download-subtitles'])

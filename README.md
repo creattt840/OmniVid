@@ -60,9 +60,9 @@ flowchart TB
 
 | 模块 | 能力 | 前端 | 后端 |
 |------|------|------|------|
-| **视频解析与下载** | 1800+ 平台解析、多清晰度、直链/Blob/代理下载 | `HeroSection` `VideoResult` | `app/api/video.py` `services/video/` |
+| **视频解析与下载** | 1800+ 平台解析、链接校验、多清晰度、直链/Blob/代理下载 | `HeroSection` `VideoResult` | `app/api/video.py` `services/video/` |
 | **AI 视频分析** | 摘要、转录、思维导图、文章改写、多轮问答（SSE）；无对白视频质量门控 | `VideoSummary` `MindMapView` | `app/api/analyze.py` `services/ai/` |
-| **字幕** | SRT/VTT/TXT 下载、6 语言翻译、Whisper 兜底 | `VideoResult` | `app/api/subtitles.py` |
+| **字幕** | SRT/VTT/TXT 下载（转录可用时显示）、6 语言翻译 | `VideoResult` | `app/api/subtitles.py` |
 | **本地视频上传** | 拖拽上传、外挂字幕、页内预览、AI 分析 | `LocalUploadModal` | `app/api/upload.py` `services/upload/` |
 | **用户认证** | 邮箱验证码注册/登录、忘记密码、JWT 会话 | `AuthModal` `useAuth.js` | `app/api/auth.py` `services/email.py` |
 | **分析历史** | 云端保存 10 条/用户，含转录/文章/问答 | `HistoryPanel` | `app/api/analysis_history.py` |
@@ -86,7 +86,7 @@ flowchart TB
 | AI 大模型 | DeepSeek + openai SDK | 流式摘要、改写、问答 |
 | 语音转写 | faster-whisper | 无字幕视频兜底；VAD + 置信度过滤 + 质量门控 |
 | 支付 | Stripe Checkout | 代码保留，前端暂未开放 |
-| 测试 | pytest + httpx | 35 项单元/集成测试 |
+| 测试 | pytest + httpx | 41 项单元/集成测试 |
 
 ## 快速开始
 
