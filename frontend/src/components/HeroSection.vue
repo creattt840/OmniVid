@@ -2,7 +2,7 @@
   <section
     class="relative transition-all"
     :class="[
-      compact ? 'pt-6 pb-5 sm:pb-6' : 'pt-12 pb-10 sm:pt-20 sm:pb-16',
+      compact ? 'pt-6 pb-5 sm:pb-6' : 'pt-12 pb-4 sm:pt-20 sm:pb-6',
       !compact ? 'hero-gradient' : '',
     ]"
   >
@@ -103,7 +103,7 @@ const placeholder = '粘贴 B站 / YouTube / 抖音等链接，立即解析'
 
 const demos = [
   { label: 'YouTube', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-  { label: 'Bilibili', url: 'https://www.bilibili.com/video/BV1GJ411x7h7' },
+  { label: 'Bilibili', url: 'https://www.bilibili.com/video/BV12LR1B3EUt' },
 ]
 
 function onSubmit() {

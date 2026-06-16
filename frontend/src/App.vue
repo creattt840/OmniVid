@@ -25,6 +25,8 @@
         :showSlogan="!videoData"
       />
 
+      <DemoShowcaseSection v-if="!videoData" />
+
       <!-- 解析结果：统一卡片双栏工作区 -->
       <section v-if="videoData" class="pt-3 sm:pt-5 pb-8 sm:pb-12 animate-fade-up">
         <div class="page-container">
@@ -149,6 +151,7 @@ import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import AuthModal from './components/AuthModal.vue'
 import HeroSection from './components/HeroSection.vue'
+import DemoShowcaseSection from './components/DemoShowcaseSection.vue'
 import VideoResult from './components/VideoResult.vue'
 import VideoSummary from './components/VideoSummary.vue'
 import HistoryPanel from './components/HistoryPanel.vue'

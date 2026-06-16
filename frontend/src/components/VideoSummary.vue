@@ -26,6 +26,7 @@
           </p>
           <p v-else-if="meta.transcript_source" class="text-xs text-text-muted truncate">
             {{ meta.transcript_source === 'subtitle' ? '字幕提取' : '语音转写' }}
+            <span v-if="demoMode" class="ml-1.5 text-primary/80">· 演示数据</span>
           </p>
         </div>
       </div>
@@ -75,7 +76,7 @@
       :class="embedded ? 'px-0 py-1' : 'px-3 sm:px-4 py-2'"
     >
       <button
-        v-for="tab in tabs"
+        v-for="tab in visibleTabs"
         :key="tab.id"
         @click="activeTab = tab.id"
         :class="[
@@ -88,7 +89,7 @@
         {{ tab.label }}
       </button>
       <!-- 导出按钮 -->
-      <div v-if="phase === 'ready' && summary.summary" class="ml-auto flex items-center gap-1 px-3 flex-shrink-0">
+      <div v-if="phase === 'ready' && summary.summary && !demoMode" class="ml-auto flex items-center gap-1 px-3 flex-shrink-0">
         <button
           type="button"
           class="px-2.5 py-1 rounded-lg text-xs font-medium text-text-muted hover:text-primary hover:bg-primary-light transition-colors cursor-pointer"
@@ -178,7 +179,7 @@
                   <span class="text-xs font-mono text-primary bg-primary-light px-2 py-0.5 rounded-lg">{{ ch.time }}</span>
                   <span class="text-sm font-medium text-text-primary flex-1">{{ ch.title }}</span>
                   <a
-                    v-if="videoUrl && !localMode"
+                    v-if="videoUrl && !localMode && !demoMode"
                     :href="buildTimestampUrl(ch.time)"
                     target="_blank"
                     rel="noopener"
@@ -239,33 +240,36 @@
       <div v-show="activeTab === 'transcript'">
         <div v-if="segments.length" class="space-y-2">
           <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-border-light">
-            <span class="text-xs text-text-muted">导出：</span>
-            <button
-              v-for="fmt in subtitleFormats"
-              :key="fmt.id"
-              type="button"
-              class="px-3 py-1 rounded-lg text-xs font-medium border border-border-light text-text-secondary hover:border-primary/30 hover:text-primary transition-colors cursor-pointer"
-              @click="exportTranscript(fmt.id)"
-            >
-              {{ fmt.label }}
-            </button>
-            <template v-if="!localMode">
-              <span class="text-xs text-text-muted ml-1">翻译：</span>
-              <select
-                v-model="translateLang"
-                class="px-2 py-1 rounded-lg text-xs border border-border-light text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
-              >
-                <option v-for="lang in translateLangs" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
-              </select>
+            <template v-if="!demoMode">
+              <span class="text-xs text-text-muted">导出：</span>
               <button
+                v-for="fmt in subtitleFormats"
+                :key="fmt.id"
                 type="button"
-                class="px-3 py-1 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary-light transition-colors cursor-pointer disabled:opacity-50"
-                :disabled="translating"
-                @click="handleTranslateDownload"
+                class="px-3 py-1 rounded-lg text-xs font-medium border border-border-light text-text-secondary hover:border-primary/30 hover:text-primary transition-colors cursor-pointer"
+                @click="exportTranscript(fmt.id)"
               >
-                {{ translating ? '翻译中...' : '翻译下载 SRT' }}
+                {{ fmt.label }}
               </button>
+              <template v-if="!localMode">
+                <span class="text-xs text-text-muted ml-1">翻译：</span>
+                <select
+                  v-model="translateLang"
+                  class="px-2 py-1 rounded-lg text-xs border border-border-light text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary/30 cursor-pointer"
+                >
+                  <option v-for="lang in translateLangs" :key="lang.id" :value="lang.id">{{ lang.label }}</option>
+                </select>
+                <button
+                  type="button"
+                  class="px-3 py-1 rounded-lg text-xs font-medium border border-primary/30 text-primary hover:bg-primary-light transition-colors cursor-pointer disabled:opacity-50"
+                  :disabled="translating"
+                  @click="handleTranslateDownload"
+                >
+                  {{ translating ? '翻译中...' : '翻译下载 SRT' }}
+                </button>
+              </template>
             </template>
+            <span v-else class="text-xs text-text-muted">演示转录文本（只读预览）</span>
           </div>
           <div ref="transcriptContainer" class="space-y-1 font-mono text-xs">
             <div
@@ -386,6 +390,7 @@ const props = defineProps({
   isLoggedIn: { type: Boolean, default: false },
   initialHistory: { type: Object, default: null },
   historyId: { type: Number, default: null },
+  demoMode: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'completed', 'sync-history', 'seek-video', 'upgrade-required'])
@@ -397,6 +402,10 @@ const tabs = [
   { id: 'article', label: '文章' },
   { id: 'chat', label: 'AI 问答' },
 ]
+
+const visibleTabs = computed(() =>
+  props.demoMode ? tabs.filter(t => t.id !== 'chat') : tabs
+)
 
 const activeTab = ref('summary')
 const sessionId = ref('')
@@ -459,10 +468,15 @@ function buildTimestampUrl(timeStr) {
 }
 
 function jumpToChapter(ch, index) {
-  activeTab.value = 'transcript'
+  if (!props.demoMode) {
+    activeTab.value = 'transcript'
+  }
   const seconds = parseTimeString(ch.time)
-  if (props.localMode) {
+  if (props.localMode && !props.demoMode) {
     emit('seek-video', seconds)
+  }
+  if (props.demoMode) {
+    return
   }
   nextTick(() => {
     let targetIdx = 0
