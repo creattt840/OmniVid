@@ -5,14 +5,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from tests.conftest import register_and_login
+
 os.environ["FREE_DAILY_AI_LIMIT"] = "10"
 
 
 def _register_and_login(client, email: str, password: str = "test1234"):
-    client.post("/api/auth/register", json={"email": email, "password": password})
-    res = client.post("/api/auth/login", json={"email": email, "password": password})
-    token = res.json()["data"]["token"]
-    return {"Authorization": f"Bearer {token}"}
+    return register_and_login(client, email, password)
 
 
 def test_register_login_me(client):

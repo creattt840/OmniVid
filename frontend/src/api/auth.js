@@ -11,18 +11,43 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-export async function register(email, password) {
+export async function sendCode(email, purpose) {
   try {
-    const { data } = await api.post('/auth/register', { email, password })
+    const { data } = await api.post('/auth/send-code', { email, purpose })
     return data
   } catch (err) {
     throw parseApiError(err)
   }
 }
 
-export async function login(email, password) {
+export async function register(email, password, code) {
   try {
-    const { data } = await api.post('/auth/login', { email, password })
+    const { data } = await api.post('/auth/register', { email, password, code })
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function login(email, { password, code } = {}) {
+  try {
+    const payload = { email }
+    if (code) payload.code = code
+    else payload.password = password
+    const { data } = await api.post('/auth/login', payload)
+    return data
+  } catch (err) {
+    throw parseApiError(err)
+  }
+}
+
+export async function resetPassword(email, code, newPassword) {
+  try {
+    const { data } = await api.post('/auth/reset-password', {
+      email,
+      code,
+      new_password: newPassword,
+    })
     return data
   } catch (err) {
     throw parseApiError(err)

@@ -26,6 +26,15 @@ class Settings:
     stripe_price_id: str
     frontend_url: str
     ytdlp_proxy: str
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    smtp_from: str
+    smtp_use_ssl: bool
+    verify_code_length: int
+    verify_code_expire_minutes: int
+    verify_code_resend_seconds: int
 
     def __init__(self) -> None:
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///./omnivid.db")
@@ -50,6 +59,15 @@ class Settings:
             or os.getenv("HTTPS_PROXY", "").strip()
             or os.getenv("HTTP_PROXY", "").strip()
         )
+        self.smtp_host = os.getenv("SMTP_HOST", "smtp.qq.com")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "465"))
+        self.smtp_user = os.getenv("SMTP_USER", "")
+        self.smtp_password = os.getenv("SMTP_PASSWORD", "")
+        self.smtp_from = os.getenv("SMTP_FROM", "") or self.smtp_user
+        self.smtp_use_ssl = os.getenv("SMTP_USE_SSL", "true").lower() in ("1", "true", "yes")
+        self.verify_code_length = int(os.getenv("VERIFY_CODE_LENGTH", "6"))
+        self.verify_code_expire_minutes = int(os.getenv("VERIFY_CODE_EXPIRE_MINUTES", "5"))
+        self.verify_code_resend_seconds = int(os.getenv("VERIFY_CODE_RESEND_SECONDS", "60"))
 
 
 @lru_cache

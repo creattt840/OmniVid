@@ -1,12 +1,11 @@
 """分析历史 API 单元测试。"""
 import time
 
+from tests.conftest import register_and_login
+
 
 def _register_and_login(client, email: str, password: str = "test1234"):
-    client.post("/api/auth/register", json={"email": email, "password": password})
-    res = client.post("/api/auth/login", json={"email": email, "password": password})
-    token = res.json()["data"]["token"]
-    return {"Authorization": f"Bearer {token}"}
+    return register_and_login(client, email, password)
 
 
 def _save_payload(url: str, title: str = "Test Video", **extra):

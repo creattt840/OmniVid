@@ -1,5 +1,7 @@
 """Quick integration tests for local upload feature."""
 
+from tests.conftest import register_and_login
+
 SRT = """1
 00:00:01,000 --> 00:00:03,000
 Test subtitle line
@@ -7,10 +9,7 @@ Test subtitle line
 
 
 def _register_and_login(client, email: str = "upload_test@example.com", password: str = "test1234"):
-    client.post("/api/auth/register", json={"email": email, "password": password})
-    res = client.post("/api/auth/login", json={"email": email, "password": password})
-    token = res.json()["data"]["token"]
-    return {"Authorization": f"Bearer {token}"}
+    return register_and_login(client, email, password)
 
 
 def test_upload_with_subtitle_and_analyze(client):

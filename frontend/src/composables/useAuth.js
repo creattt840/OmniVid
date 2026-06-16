@@ -1,5 +1,11 @@
 import { ref, computed } from 'vue'
-import { login as apiLogin, register as apiRegister, fetchMe } from '../api/auth.js'
+import {
+  login as apiLogin,
+  register as apiRegister,
+  sendCode as apiSendCode,
+  resetPassword as apiResetPassword,
+  fetchMe,
+} from '../api/auth.js'
 import { getToken, setToken } from '../api/authStorage.js'
 
 const user = ref(null)
@@ -26,8 +32,8 @@ export function useAuth() {
     }
   }
 
-  async function login(email, password) {
-    const res = await apiLogin(email, password)
+  async function login(email, options) {
+    const res = await apiLogin(email, options)
     if (res.success) {
       setToken(res.data.token)
       user.value = res.data.user
@@ -35,13 +41,21 @@ export function useAuth() {
     return res
   }
 
-  async function register(email, password) {
-    const res = await apiRegister(email, password)
+  async function register(email, password, code) {
+    const res = await apiRegister(email, password, code)
     if (res.success) {
       setToken(res.data.token)
       user.value = res.data.user
     }
     return res
+  }
+
+  async function sendCode(email, purpose) {
+    return apiSendCode(email, purpose)
+  }
+
+  async function resetPassword(email, code, newPassword) {
+    return apiResetPassword(email, code, newPassword)
   }
 
   async function refreshUser() {
@@ -64,6 +78,8 @@ export function useAuth() {
     initAuth,
     login,
     register,
+    sendCode,
+    resetPassword,
     refreshUser,
     logout,
   }
