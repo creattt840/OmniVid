@@ -12,6 +12,7 @@ from openai import OpenAI
 
 from app.services.ai.subtitles import SubtitleFetcher, parse_subtitle_file
 from app.services.ai.summary_parser import extract_partial_summary, parse_summary_json
+from app.services.ai.transcript_quality import assert_transcript_quality
 from app.core.config import get_settings
 
 logger = logging.getLogger("summarizer")
@@ -66,7 +67,8 @@ SUMMARY_SYSTEM_PROMPT = """你是一位专业的视频内容分析师。根据�
   "mindmap": "# 主题\\n## 分支1\\n### 细节\\n## 分支2",
   "terms": [{"term": "术语", "definition": "解释"}]
 }
-要求：highlights 5条；chapters 3-8个；mindmap 用 Markdown 层级列表；terms 2-5个。"""
+要求：highlights 5条；chapters 3-8个；mindmap 用 Markdown 层级列表；terms 2-5个。
+若转录文本仅为音乐标签、歌词碎片、无意义重复，或明显不足以描述视频内容，不要编造——在 summary 中明确写「转录内容不足，无法生成可靠分析」并将 highlights/chapters/terms 设为空数组。"""
 
 CHAT_SYSTEM_PROMPT = """你是一位视频内容助手。根据提供的视频转录和摘要，准确回答用户关于视频内容的问题。
 如果视频中没有相关信息，请诚实说明。回答简洁清晰，使用中文。"""
@@ -118,6 +120,8 @@ class VideoAnalyzer:
         if not segments:
             raise ValueError("无法获取视频转录文本（无字幕且语音转写失败）")
 
+        assert_transcript_quality(segments, meta.get("duration") or 0)
+
         return session_store.create(
             url=url,
             title=meta.get("title") or "未知标题",
@@ -163,6 +167,10 @@ class VideoAnalyzer:
 
         if not segments:
             raise ValueError("无法获取视频转录文本（无字幕且语音转写失败）")
+
+        # 用户主动上传的外挂字幕信任度更高，不做平台自动字幕/Whisper 同款门控
+        if source == "whisper":
+            assert_transcript_quality(segments, meta.get("duration") or record.duration or 0)
 
         file_ref = f"local://{record.file_id}"
         return session_store.create(

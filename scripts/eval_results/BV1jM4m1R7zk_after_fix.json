@@ -1,0 +1,24 @@
+{
+  "bvid": "BV1jM4m1R7zk",
+  "url": "https://www.bilibili.com/video/BV1jM4m1R7zk",
+  "ground_truth": {
+    "speech_level": "music_only",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "游戏/短视频类，以画面和音乐为主",
+    "verifiable_facts": [
+      "以视觉画面和背景音乐为主",
+      "无结构化口播讲解",
+      "不应编造验证码或登录教程类口播内容"
+    ]
+  },
+  "error": "未检测到足够的人声内容，无法生成可靠分析（有效转录文本过短（40 字），可能为纯音乐或默剧视频）。此类视频可能为纯音乐、默剧或仅含游戏音效。",
+  "transcript_source": null,
+  "segment_count": 0,
+  "segments": [],
+  "transcript_text": "",
+  "summary": {},
+  "mindmap": "",
+  "article": "",
+  "traceback": "Traceback (most recent call last):\n  File \"E:\\code\\video-downloader\\scripts\\eval_no_speech_videos.py\", line 110, in run_analysis\n    session = analyzer.prepare_transcript(url)\n  File \"E:\\code\\video-downloader\\backend\\app\\services\\ai\\summarizer.py\", line 123, in prepare_transcript\n    assert_transcript_quality(segments, meta.get(\"duration\") or 0)\n    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"E:\\code\\video-downloader\\backend\\app\\services\\ai\\transcript_quality.py\", line 71, in assert_transcript_quality\n    raise ValueError(\n    ...<2 lines>...\n    )\nValueError: 未检测到足够的人声内容，无法生成可靠分析（有效转录文本过短（40 字），可能为纯音乐或默剧视频）。此类视频可能为纯音乐、默剧或仅含游戏音效。\n"
+}

@@ -1,0 +1,26 @@
+{
+  "bvid": "BV1jM4m1R7zk",
+  "url": "https://www.bilibili.com/video/BV1jM4m1R7zk",
+  "title": "大一学生心理默剧《笼中鸟》",
+  "duration": 363,
+  "platform": "哔哩哔哩",
+  "subtitle_segment_count": 5,
+  "subtitle_preview": [
+    "可可妈妈说快点进来",
+    "银鞍白马",
+    "主动召唤宝宝们全体受罪",
+    "♪ 聚集农村 ♪",
+    "♪ 给我宣誓 ♪"
+  ],
+  "ground_truth": {
+    "speech_level": "music_only",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "游戏/短视频类，以画面和音乐为主",
+    "verifiable_facts": [
+      "以视觉画面和背景音乐为主",
+      "无结构化口播讲解",
+      "不应编造验证码或登录教程类口播内容"
+    ]
+  }
+}

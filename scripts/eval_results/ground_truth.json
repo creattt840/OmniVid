@@ -1,0 +1,36 @@
+{
+  "BV1vcoNBjELQ": {
+    "speech_level": "music_only",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "游戏实况/BGM，无清晰对白（验证码相关短视频）",
+    "verifiable_facts": [
+      "视频为游戏画面剪辑，以背景音乐为主",
+      "无连续清晰的人声解说或对白",
+      "不应出现具体教程式口播内容摘要"
+    ]
+  },
+  "BV1jM4m1R7zk": {
+    "speech_level": "music_only",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "游戏/短视频类，以画面和音乐为主",
+    "verifiable_facts": [
+      "以视觉画面和背景音乐为主",
+      "无结构化口播讲解",
+      "不应编造验证码或登录教程类口播内容"
+    ]
+  },
+  "BV1pP4y1R7eT": {
+    "speech_level": "none",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "CSGO 默剧《我很神秘》，游戏音效无对白",
+    "verifiable_facts": [
+      "CSGO 游戏默剧/搞笑剪辑，标题为《我很神秘》",
+      "无人物对白，仅有游戏音效和背景音乐",
+      "内容围绕 CSGO 游戏画面与 timing/操作",
+      "不应出现演讲、课程、访谈类口播摘要"
+    ]
+  }
+}

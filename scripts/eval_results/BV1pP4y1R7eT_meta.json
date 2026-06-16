@@ -1,0 +1,21 @@
+{
+  "bvid": "BV1pP4y1R7eT",
+  "url": "https://www.bilibili.com/video/BV1pP4y1R7eT",
+  "title": "csgo默剧——《我很神秘》",
+  "duration": 146,
+  "platform": "哔哩哔哩",
+  "subtitle_segment_count": 0,
+  "subtitle_preview": [],
+  "ground_truth": {
+    "speech_level": "none",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "CSGO 默剧《我很神秘》，游戏音效无对白",
+    "verifiable_facts": [
+      "CSGO 游戏默剧/搞笑剪辑，标题为《我很神秘》",
+      "无人物对白，仅有游戏音效和背景音乐",
+      "内容围绕 CSGO 游戏画面与 timing/操作",
+      "不应出现演讲、课程、访谈类口播摘要"
+    ]
+  }
+}

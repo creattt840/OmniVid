@@ -17,6 +17,26 @@ logger = logging.getLogger("transcriber")
 _whisper_lock = threading.Lock()
 _whisper_model = None
 
+# 过滤幻听片段：no_speech 概率高或置信度过低
+_NO_SPEECH_THRESHOLD = 0.6
+_MIN_AVG_LOGPROB = -1.0
+
+
+def _filter_whisper_segments(segments_iter) -> list[dict]:
+    segments = []
+    for seg in segments_iter:
+        text = seg.text.strip()
+        if not text:
+            continue
+        no_speech = getattr(seg, "no_speech_prob", 0.0) or 0.0
+        avg_logprob = getattr(seg, "avg_logprob", 0.0) or 0.0
+        if no_speech > _NO_SPEECH_THRESHOLD:
+            continue
+        if avg_logprob < _MIN_AVG_LOGPROB:
+            continue
+        segments.append({"start": seg.start, "end": seg.end, "text": text})
+    return segments
+
 
 def _get_whisper_model(model_size: str = "small"):
     global _whisper_model
@@ -69,13 +89,9 @@ class Transcriber:
                     str(file_path),
                     beam_size=5,
                     language=None,
-                    vad_filter=False,
+                    vad_filter=True,
                 )
-                segments = [
-                    {"start": seg.start, "end": seg.end, "text": seg.text.strip()}
-                    for seg in segments_iter
-                    if seg.text.strip()
-                ]
+                segments = _filter_whisper_segments(segments_iter)
             if not base_meta.get("duration") and info:
                 base_meta["duration"] = int(info.duration or 0)
             if not segments:
@@ -110,13 +126,9 @@ class Transcriber:
                     str(audio_path),
                     beam_size=5,
                     language=None,
-                    vad_filter=False,
+                    vad_filter=True,
                 )
-                segments = [
-                    {"start": seg.start, "end": seg.end, "text": seg.text.strip()}
-                    for seg in segments_iter
-                    if seg.text.strip()
-                ]
+                segments = _filter_whisper_segments(segments_iter)
             if not meta.get("duration") and info:
                 meta["duration"] = int(info.duration or 0)
             if not segments:

@@ -62,6 +62,13 @@
 - JSON 截断自动修复（`summary_parser.py`）
 - SSE 缓冲区兜底，避免生成卡住
 
+### 2.9 转录质量门控（2026-06-16）
+
+- Whisper 开启 VAD + `no_speech_prob` / `avg_logprob` 过滤
+- 新增 `transcript_quality.py`：拦截纯音乐/默剧/自动 CC 歌词幻听
+- `prepare_transcript` 前强制校验，无足够人声时明确拒绝分析
+- 详见 [阶段总结-转录质量门控.md](阶段总结-转录质量门控.md) 与 [测试报告](测试报告-无语音视频幻觉评估.md)
+
 ## 三、技术实现
 
 ```
@@ -95,7 +102,8 @@ URL → 尝试字幕（B站 API / yt-dlp VTT）
 | 路径 | 职责 |
 |------|------|
 | `app/services/ai/subtitles.py` | 统一字幕拉取与 VTT/SRT/JSON 解析、序列化导出 |
-| `app/services/ai/transcriber.py` | 无字幕时音频下载 + Whisper ASR |
+| `app/services/ai/transcriber.py` | 无字幕时音频下载 + Whisper ASR（VAD + 置信度过滤） |
+| `app/services/ai/transcript_quality.py` | 转录质量门控，拦截无对白/幻听文本 |
 | `app/services/ai/summarizer.py` | DeepSeek 调用、Session 管理、SSE |
 | `app/services/ai/summary_parser.py` | 流式 JSON 摘要解析与截断修复 |
 
@@ -132,7 +140,8 @@ WHISPER_MAX_DURATION=3600
 |--------|------|
 | B 站字幕提取（BV1GJ411x7h7） | 通过，44 条 segments |
 | YouTube 字幕提取（dQw4w9WgXcQ） | 通过，61 条英文字幕 |
-| YouTube Whisper 兜底（音乐视频） | 通过，关闭 vad_filter 后可转写 |
+| YouTube Whisper 兜底（有对白视频） | 通过 |
+| 无对白/纯音乐视频质量门控 | 通过，3 条 BV 回归均拒绝分析 |
 | DeepSeek 流式摘要 + SSE | 通过 |
 | markmap 思维导图渲染 | 通过 |
 | 思维导图全屏 + PNG/SVG/Markdown 导出 | 通过 |
@@ -178,6 +187,8 @@ WHISPER_MAX_DURATION=3600
 - 超长转录超 DeepSeek 上下文时会截断至 50000 字符
 - YouTube 字幕偶发 429 时，yt-dlp 下载 VTT 或 Whisper 兜底
 - 思维导图 Tab 切换时会自动 `fit()` 适配尺寸
+- 纯音乐/默剧/无对白视频会被质量门控拒绝，不生成 AI 摘要
+- 极短口播（< 50 字有效文本）可能被误拒，属启发式阈值权衡
 
 ## 九、待后续阶段
 

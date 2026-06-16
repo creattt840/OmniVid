@@ -61,7 +61,7 @@ flowchart TB
 | 模块 | 能力 | 前端 | 后端 |
 |------|------|------|------|
 | **视频解析与下载** | 1800+ 平台解析、多清晰度、直链/Blob/代理下载 | `HeroSection` `VideoResult` | `app/api/video.py` `services/video/` |
-| **AI 视频分析** | 摘要、转录、思维导图、文章改写、多轮问答（SSE） | `VideoSummary` `MindMapView` | `app/api/analyze.py` `services/ai/` |
+| **AI 视频分析** | 摘要、转录、思维导图、文章改写、多轮问答（SSE）；无对白视频质量门控 | `VideoSummary` `MindMapView` | `app/api/analyze.py` `services/ai/` |
 | **字幕** | SRT/VTT/TXT 下载、6 语言翻译、Whisper 兜底 | `VideoResult` | `app/api/subtitles.py` |
 | **本地视频上传** | 拖拽上传、外挂字幕、页内预览、AI 分析 | `LocalUploadModal` | `app/api/upload.py` `services/upload/` |
 | **用户认证** | 邮箱验证码注册/登录、忘记密码、JWT 会话 | `AuthModal` `useAuth.js` | `app/api/auth.py` `services/email.py` |
@@ -84,9 +84,9 @@ flowchart TB
 | 国内平台 | douyin.py + bilibili.py | 专用 API，绕过反爬 |
 | 媒体处理 | ffmpeg | YouTube 等 A/V 分离合并 |
 | AI 大模型 | DeepSeek + openai SDK | 流式摘要、改写、问答 |
-| 语音转写 | faster-whisper | 无字幕视频兜底 |
+| 语音转写 | faster-whisper | 无字幕视频兜底；VAD + 置信度过滤 + 质量门控 |
 | 支付 | Stripe Checkout | 代码保留，前端暂未开放 |
-| 测试 | pytest + httpx | 30 项单元/集成测试 |
+| 测试 | pytest + httpx | 35 项单元/集成测试 |
 
 ## 快速开始
 
@@ -169,6 +169,8 @@ video-downloader/
 | [阶段总结-用户登录与VIP会员](docs/阶段总结-用户登录与VIP会员.md) | JWT、Stripe、配额 |
 | [阶段总结-用户分析历史](docs/阶段总结-用户分析历史.md) | 云端历史与配额策略 |
 | [阶段总结-AI视频总结功能](docs/阶段总结-AI视频总结功能.md) | DeepSeek、SSE、思维导图 |
+| [阶段总结-转录质量门控](docs/阶段总结-转录质量门控.md) | 无语音视频幻觉修复 |
+| [测试报告-无语音视频幻觉评估](docs/测试报告-无语音视频幻觉评估.md) | ASR/总结双指标评估 |
 | [阶段总结-本地视频上传解析](docs/阶段总结-本地视频上传解析.md) | 本地上传与 Whisper |
 | [阶段总结-后端工程化重构](docs/阶段总结-后端工程化重构.md) | 分层目录与路由拆分 |
 | [阶段总结-首页成果展示](docs/阶段总结-首页成果展示.md) | Demo 样例数据 |

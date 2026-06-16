@@ -1,0 +1,20 @@
+{
+  "bvid": "BV1vcoNBjELQ",
+  "url": "https://www.bilibili.com/video/BV1vcoNBjELQ",
+  "title": "卓别林：这么一剪，原来嘎子才是真的默片喜剧大师！",
+  "duration": 274,
+  "platform": "哔哩哔哩",
+  "subtitle_segment_count": 0,
+  "subtitle_preview": [],
+  "ground_truth": {
+    "speech_level": "music_only",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "游戏实况/BGM，无清晰对白（验证码相关短视频）",
+    "verifiable_facts": [
+      "视频为游戏画面剪辑，以背景音乐为主",
+      "无连续清晰的人声解说或对白",
+      "不应出现具体教程式口播内容摘要"
+    ]
+  }
+}

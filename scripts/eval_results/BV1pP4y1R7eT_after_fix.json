@@ -1,0 +1,25 @@
+{
+  "bvid": "BV1pP4y1R7eT",
+  "url": "https://www.bilibili.com/video/BV1pP4y1R7eT",
+  "ground_truth": {
+    "speech_level": "none",
+    "has_dialogue": false,
+    "has_cc_subtitle": false,
+    "content_type": "CSGO 默剧《我很神秘》，游戏音效无对白",
+    "verifiable_facts": [
+      "CSGO 游戏默剧/搞笑剪辑，标题为《我很神秘》",
+      "无人物对白，仅有游戏音效和背景音乐",
+      "内容围绕 CSGO 游戏画面与 timing/操作",
+      "不应出现演讲、课程、访谈类口播摘要"
+    ]
+  },
+  "error": "无法获取视频转录文本：语音转写未识别到有效文本，请尝试其他视频",
+  "transcript_source": null,
+  "segment_count": 0,
+  "segments": [],
+  "transcript_text": "",
+  "summary": {},
+  "mindmap": "",
+  "article": "",
+  "traceback": "Traceback (most recent call last):\n  File \"E:\\code\\video-downloader\\backend\\app\\services\\ai\\summarizer.py\", line 115, in prepare_transcript\n    segments, meta = self.transcriber.transcribe_url(url)\n                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^\n  File \"E:\\code\\video-downloader\\backend\\app\\services\\ai\\transcriber.py\", line 135, in transcribe_url\n    raise ValueError(\"语音转写未识别到有效文本，请尝试其他视频\")\nValueError: 语音转写未识别到有效文本，请尝试其他视频\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"E:\\code\\video-downloader\\scripts\\eval_no_speech_videos.py\", line 110, in run_analysis\n    session = analyzer.prepare_transcript(url)\n  File \"E:\\code\\video-downloader\\backend\\app\\services\\ai\\summarizer.py\", line 118, in prepare_transcript\n    raise ValueError(f\"无法获取视频转录文本：{e}\") from e\nValueError: 无法获取视频转录文本：语音转写未识别到有效文本，请尝试其他视频\n"
+}
