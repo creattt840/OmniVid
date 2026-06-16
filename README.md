@@ -1,6 +1,6 @@
 # OmniVid
 
-基于 **yt-dlp** 的智能视频助理，支持 YouTube、Bilibili、抖音、TikTok 等 1800+ 平台。粘贴链接即可解析下载，并自动生成 AI 摘要、思维导图与字幕。
+基于 **yt-dlp** 的智能视频助理，支持 YouTube、Bilibili、抖音、TikTok 等 1800+ 平台。粘贴链接即可解析下载（抖音/B站分享口令可整段粘贴，自动提取链接），并自动生成 AI 摘要、思维导图与字幕。
 
 [![GitHub](https://img.shields.io/badge/GitHub-creattt840%2Fvideo--downloader-6366F1?style=flat&logo=github)](https://github.com/creattt840/video-downloader)
 

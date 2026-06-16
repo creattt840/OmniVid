@@ -35,7 +35,7 @@
             <input
               id="video-url-input"
               v-model="url"
-              type="url"
+              type="text"
               :placeholder="placeholder"
               class="flex-1 min-w-0 h-11 bg-transparent text-sm sm:text-base text-text-primary placeholder:text-text-muted focus:outline-none"
               :disabled="loading"
@@ -139,6 +139,7 @@ function onSubmit() {
     return
   }
 
+  url.value = trimmed
   emit('parse', trimmed)
 }
 

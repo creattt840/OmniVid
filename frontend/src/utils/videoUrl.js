@@ -52,9 +52,28 @@ const VIDEO_PATH_PATTERNS = [
   /\/share\/video\//i,
 ]
 
+/** 从分享文案中提取第一个 http(s) 链接（抖音/B站复制口令等） */
+export function extractVideoUrlFromText(input) {
+  const text = (input || '').trim()
+  if (!text) return ''
+
+  const match = text.match(/https?:\/\/[^\s<>"']+/i)
+  if (match) {
+    return cleanTrailingPunctuation(match[0])
+  }
+
+  return text
+}
+
+function cleanTrailingPunctuation(url) {
+  return url.replace(/[)\].,;!?'"'""''>]+$/g, '')
+}
+
 export function normalizeVideoUrl(input) {
-  let url = (input || '').trim()
-  if (!url) return ''
+  const extracted = extractVideoUrlFromText(input)
+  if (!extracted) return ''
+
+  let url = extracted.trim()
   if (!/^https?:\/\//i.test(url)) {
     url = `https://${url}`
   }
