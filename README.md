@@ -127,6 +127,16 @@ npm run build
 
 详见 [SEO 与 GEO 优化指南](docs/SEO与GEO优化.md)。
 
+### 宝塔面板上线
+
+```bash
+# 服务器上克隆后按脚本逐步执行
+git clone https://github.com/creattt840/video-downloader.git
+cd video-downloader/deploy
+```
+
+完整零基础教学见 [宝塔部署指南](docs/宝塔部署指南.md)，逐步清单见 [deploy/checklist.md](deploy/checklist.md)。上线记录见 [阶段总结-宝塔部署上线](docs/阶段总结-宝塔部署上线.md)。
+
 ## 项目结构
 
 ```
@@ -164,6 +174,8 @@ video-downloader/
 | [需求分析](docs/需求分析.md) | 产品需求与分期计划 |
 | [方案设计](docs/方案设计.md) | 架构、API、目录、UI 规范 |
 | [本地运行指南](docs/本地运行指南.md) | 环境配置、测试流程、常见问题 |
+| [宝塔部署指南](docs/宝塔部署指南.md) | 腾讯云 + 宝塔面板零基础上线 |
+| [阶段总结-宝塔部署上线](docs/阶段总结-宝塔部署上线.md) | IP 内测部署记录与踩坑 |
 | [SEO 与 GEO 优化](docs/SEO与GEO优化.md) | 构建时 SEO/GEO 配置 |
 | [阶段总结-邮箱验证码登录](docs/阶段总结-邮箱验证码登录.md) | SMTP 验证码认证 |
 | [阶段总结-用户登录与VIP会员](docs/阶段总结-用户登录与VIP会员.md) | JWT、Stripe、配额 |

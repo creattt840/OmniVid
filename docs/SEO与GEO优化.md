@@ -70,6 +70,7 @@ subtitle
 
    ```env
    VITE_SITE_URL=https://你的域名.com
+   VITE_ICP_NUMBER=京ICP备xxxxxxxx号-1
    ```
 
 3. 重新构建：
@@ -79,8 +80,9 @@ subtitle
    npm run build
    ```
 
-4. 在 [Google Search Console](https://search.google.com/search-console) 和 [百度搜索资源平台](https://ziyuan.baidu.com) 提交 sitemap
-5. 取消 `index.html` 中站长验证 meta 注释，填入验证码
+4. 部署步骤见 [宝塔部署指南](宝塔部署指南.md)
+5. 在 [Google Search Console](https://search.google.com/search-console) 和 [百度搜索资源平台](https://ziyuan.baidu.com) 提交 sitemap
+6. 取消 `index.html` 中站长验证 meta 注释，填入验证码
 
 ---
 

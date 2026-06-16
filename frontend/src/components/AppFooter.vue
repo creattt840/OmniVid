@@ -31,13 +31,33 @@
             </p>
           </div>
         </div>
-        <div class="pt-4 border-t border-border-light text-center text-xs text-text-muted">
-          © {{ year }} OmniVid · 基于 yt-dlp 开源项目
+        <div class="pt-4 border-t border-border-light text-center text-xs text-text-muted space-y-1">
+          <p>© {{ year }} OmniVid · 基于 yt-dlp 开源项目</p>
+          <p v-if="icpNumber">
+            <a
+              v-if="icpLink"
+              :href="icpLink"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="hover:text-primary transition-colors"
+            >{{ icpNumber }}</a>
+            <span v-else>{{ icpNumber }}</span>
+          </p>
         </div>
       </template>
-      <p v-else class="text-center text-xs text-text-muted">
-        © {{ year }} OmniVid · 仅供个人学习交流使用
-      </p>
+      <div v-else class="text-center text-xs text-text-muted space-y-1">
+        <p>© {{ year }} OmniVid · 仅供个人学习交流使用</p>
+        <p v-if="icpNumber">
+          <a
+            v-if="icpLink"
+            :href="icpLink"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hover:text-primary transition-colors"
+          >{{ icpNumber }}</a>
+          <span v-else>{{ icpNumber }}</span>
+        </p>
+      </div>
     </div>
   </footer>
 </template>
@@ -48,4 +68,6 @@ defineProps({
 })
 
 const year = new Date().getFullYear()
+const icpNumber = (import.meta.env.VITE_ICP_NUMBER || '').trim()
+const icpLink = (import.meta.env.VITE_ICP_LINK || 'https://beian.miit.gov.cn/').trim()
 </script>
